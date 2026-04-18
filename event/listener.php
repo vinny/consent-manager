@@ -73,15 +73,8 @@ class listener implements EventSubscriberInterface
 			generate_link_hash('phpbb.consentmanager.log')
 		);
 
-		$bootstrap = array(
-			'storageKey' => $this->consent_manager->get_storage_key(),
-			'cookieName' => $this->consent_manager->get_cookie_name(),
-			'version' => $this->consent_manager->get_version(),
-		);
-
 		$this->template->assign_vars(array(
 			'S_CONSENTMANAGER_ENABLED'	=> true,
-			'CONSENTMANAGER_BOOTSTRAP'	=> json_encode($bootstrap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
 			'CONSENTMANAGER_PAYLOAD'	=> json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
 		));
 	}

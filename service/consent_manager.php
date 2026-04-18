@@ -14,7 +14,7 @@ use phpbb\config\config;
 use phpbb\config\db_text;
 use phpbb\language\language;
 
-class consent_manager
+class consent_manager implements consent_manager_interface
 {
 	const STORAGE_KEY = 'phpbb_consent_manager';
 	const COOKIE_NAME = 'phpbb_consent_manager';
@@ -38,18 +38,36 @@ class consent_manager
 		$this->language = $language;
 	}
 
+	/**
+	 * Register a consent-aware service or script bundle.
+	 *
+	 * The definition must provide a supported category. Script definitions may
+	 * provide either a script source URL or inline JavaScript, but not both.
+	 *
+	 * @param string $id Unique registration id
+	 * @param array  $definition Registration metadata and scripts
+	 * Invalid definitions fail closed and are ignored rather than causing
+	 * optional scripts to execute unsafely.
+	 *
+	 * @return bool True if the registration was accepted, false otherwise
+	 */
 	public function register($id, array $definition)
 	{
-		$category = isset($definition['category']) ? (string) $definition['category'] : '';
+		$id = trim((string) $id);
+		if (!$this->is_valid_identifier($id))
+		{
+			return false;
+		}
 
+		$category = isset($definition['category']) ? trim((string) $definition['category']) : '';
 		if (!$this->is_supported_category($category))
 		{
-			throw new \InvalidArgumentException('Unsupported consent category: ' . $category);
+			return false;
 		}
 
 		$registration = array(
-			'id' => (string) $id,
-			'label' => isset($definition['label']) && trim($definition['label']) !== '' ? trim($definition['label']) : (string) $id,
+			'id' => $id,
+			'label' => isset($definition['label']) && trim((string) $definition['label']) !== '' ? trim((string) $definition['label']) : $id,
 			'category' => $category,
 			'description' => isset($definition['description']) ? trim((string) $definition['description']) : '',
 			'scripts' => array(),
@@ -57,14 +75,14 @@ class consent_manager
 
 		if (isset($definition['scripts']) && is_array($definition['scripts']))
 		{
-			foreach ($definition['scripts'] as $script_definition)
+			foreach ($definition['scripts'] as $script_index => $script_definition)
 			{
 				if (!is_array($script_definition))
 				{
 					continue;
 				}
 
-				$script = $this->normalize_script($registration['id'], $registration['category'], $script_definition);
+				$script = $this->normalize_script($id, $category, $script_definition, $script_index, true);
 				if (!empty($script))
 				{
 					$registration['scripts'][] = $script;
@@ -73,7 +91,7 @@ class consent_manager
 		}
 		else
 		{
-			$script = $this->normalize_script($registration['id'], $registration['category'], $definition);
+			$script = $this->normalize_script($id, $category, $definition, 0, false);
 			if (!empty($script))
 			{
 				$registration['scripts'][] = $script;
@@ -81,6 +99,7 @@ class consent_manager
 		}
 
 		$this->registrations[$registration['id']] = $registration;
+		return true;
 	}
 
 	public function build_frontend_payload($log_url, $log_hash)
@@ -93,12 +112,10 @@ class consent_manager
 		{
 			foreach ($service['scripts'] as $script)
 			{
-				if (!$this->is_category_enabled($script['category']))
+				if ($this->is_category_enabled($script['category']))
 				{
-					continue;
+					$scripts[$script['id']] = $script;
 				}
-
-				$scripts[$script['id']] = $script;
 			}
 		}
 
@@ -106,6 +123,8 @@ class consent_manager
 			'storageKey' => $this->get_storage_key(),
 			'cookieName' => $this->get_cookie_name(),
 			'version' => $this->get_version(),
+			'rootId' => 'consent-manager-root',
+			'deferredSelector' => 'script[type="text/plain"][data-consent-category]',
 			'categories' => array_values($categories),
 			'services' => array_values($services),
 			'scripts' => array_values($scripts),
@@ -123,6 +142,7 @@ class consent_manager
 				'serviceListHeading' => $this->language->lang('CONSENTMANAGER_SERVICE_LIST_HEADING'),
 				'alwaysActive' => $this->language->lang('CONSENTMANAGER_ALWAYS_ACTIVE'),
 				'allowed' => $this->language->lang('CONSENTMANAGER_ALLOWED'),
+				'settingsTitle' => $this->language->lang('CONSENTMANAGER_SETTINGS_TITLE'),
 			),
 			'logEndpoint' => $log_url,
 			'logHash' => $log_hash,
@@ -190,6 +210,16 @@ class consent_manager
 		return empty($errors) ? $integrations : array();
 	}
 
+	/**
+	 * Normalize integrations configured through the ACP JSON textarea.
+	 *
+	 * Inline JavaScript is intentionally not supported here so ACP-managed
+	 * integrations cannot introduce arbitrary executable code.
+	 *
+	 * @param string|array $input Raw JSON or pre-decoded integrations
+	 * @param array        $errors Validation errors
+	 * @return array
+	 */
 	public function normalize_integrations($input, array &$errors = array())
 	{
 		if (is_string($input))
@@ -239,7 +269,7 @@ class consent_manager
 			$category = isset($item['category']) ? trim((string) $item['category']) : '';
 			$src = isset($item['src']) ? trim((string) $item['src']) : '';
 
-			if ($id === '' || !$this->is_supported_category($category) || !$this->is_valid_script_source($src))
+			if (!$this->is_valid_identifier($id) || !$this->is_supported_category($category) || !$this->is_valid_script_source($src))
 			{
 				$errors[] = $this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATION_ENTRY', $index + 1);
 				continue;
@@ -255,6 +285,7 @@ class consent_manager
 						'id' => $id,
 						'category' => $category,
 						'src' => $src,
+						'inline' => '',
 						'async' => !empty($item['async']),
 						'defer' => !empty($item['defer']),
 						'attributes' => array(),
@@ -269,9 +300,10 @@ class consent_manager
 	public function normalize_categories(array $categories)
 	{
 		$normalized = array('necessary');
+
 		foreach ($categories as $category)
 		{
-			$category = (string) $category;
+			$category = trim((string) $category);
 			if ($category !== 'necessary' && $this->is_category_enabled($category))
 			{
 				$normalized[] = $category;
@@ -314,15 +346,26 @@ class consent_manager
 		return isset($categories[$category]) && $categories[$category]['enabled'];
 	}
 
-	protected function is_supported_category($category)
+	public function is_supported_category($category)
 	{
 		return in_array($category, array('necessary', 'analytics', 'marketing'), true);
 	}
 
-	protected function normalize_script($registration_id, $fallback_category, array $definition)
+	protected function normalize_script($registration_id, $fallback_category, array $definition, $script_index = 0, $force_unique_id = false)
 	{
-		$category = isset($definition['category']) && $definition['category'] !== '' ? (string) $definition['category'] : $fallback_category;
+		$category = isset($definition['category']) && trim((string) $definition['category']) !== '' ? trim((string) $definition['category']) : $fallback_category;
 		if (!$this->is_supported_category($category))
+		{
+			return array();
+		}
+
+		$script_id = isset($definition['id']) && trim((string) $definition['id']) !== '' ? trim((string) $definition['id']) : $registration_id;
+		if ($force_unique_id || $script_id === $registration_id && $script_index > 0)
+		{
+			$script_id = $registration_id . '.' . ($script_index + 1);
+		}
+
+		if (!$this->is_valid_identifier($script_id))
 		{
 			return array();
 		}
@@ -335,12 +378,22 @@ class consent_manager
 			return array();
 		}
 
+		if ($src !== '' && $inline !== '')
+		{
+			return array();
+		}
+
+		if ($src !== '' && !$this->is_valid_script_source($src))
+		{
+			return array();
+		}
+
 		return array(
-			'id' => isset($definition['id']) && trim($definition['id']) !== '' ? trim((string) $definition['id']) : $registration_id,
+			'id' => $script_id,
 			'category' => $category,
 			'src' => $src,
 			'inline' => $inline,
-			'async' => isset($definition['async']) ? (bool) $definition['async'] : true,
+			'async' => isset($definition['async']) ? (bool) $definition['async'] : ($src !== ''),
 			'defer' => isset($definition['defer']) ? (bool) $definition['defer'] : false,
 			'attributes' => $this->normalize_attributes(isset($definition['attributes']) ? $definition['attributes'] : array()),
 		);
@@ -357,7 +410,10 @@ class consent_manager
 		foreach ($attributes as $name => $value)
 		{
 			$name = trim((string) $name);
-			if ($name === '' || !preg_match('/^[a-zA-Z_:][a-zA-Z0-9_:\\.-]*$/', $name))
+			if ($name === ''
+				|| !preg_match('/^[a-zA-Z_:][a-zA-Z0-9_:\\.-]*$/', $name)
+				|| preg_match('/^on/i', $name)
+				|| in_array(strtolower($name), array('src', 'type', 'async', 'defer'), true))
 			{
 				continue;
 			}
@@ -378,7 +434,7 @@ class consent_manager
 			return false;
 		}
 
-		if (strpos($src, '//') === 0 || preg_match('#^(?:javascript|data):#i', $src))
+		if (strpos($src, '//') === 0 || preg_match('#^(?:javascript|data|vbscript|file):#i', $src))
 		{
 			return false;
 		}
@@ -391,4 +447,10 @@ class consent_manager
 
 		return !isset($parts['scheme']) || in_array(strtolower($parts['scheme']), array('http', 'https'), true);
 	}
+
+	protected function is_valid_identifier($identifier)
+	{
+		return $identifier !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]*$/', $identifier);
+	}
+
 }

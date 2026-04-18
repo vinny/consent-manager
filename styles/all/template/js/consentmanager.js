@@ -1,33 +1,73 @@
 (function (window, document) {
 	'use strict';
 
-	var dataElement = document.getElementById('consent-manager-data');
-	if (!dataElement)
+	var payload = window.phpbbConsentManagerPayload || null;
+	var existingApi = window.consentManager || {};
+	var queued = existingApi._queue ? existingApi._queue.slice(0) : [];
+	var listeners = [];
+	var registry = {};
+	var executedScripts = {};
+	var executedCategories = {};
+	var root = null;
+	var state = null;
+	var isRendered = false;
+	var isBound = false;
+	var pendingOpenSettings = false;
+	var keydownBound = false;
+	var lastFocusedElement = null;
+	var categoriesById = {};
+	var optionalCategories = [];
+	var i;
+
+	if (!payload || !payload.categories)
 	{
 		return;
 	}
 
-	var payload = JSON.parse(dataElement.textContent || '{}');
-	var root = document.getElementById('consent-manager-root');
-	var queued = window.consentManager && window.consentManager._queue ? window.consentManager._queue.slice(0) : [];
-	var listeners = [];
-	var registry = {};
-	var executedScripts = {};
-	var state = loadState();
-	var optionalCategories = [];
-	var i;
-
 	for (i = 0; i < payload.categories.length; i++)
 	{
-		if (!payload.categories[i].required && payload.categories[i].enabled)
+		categoriesById[payload.categories[i].id] = payload.categories[i];
+
+		if (payload.categories[i].enabled && !payload.categories[i].required)
 		{
 			optionalCategories.push(payload.categories[i].id);
 		}
 	}
 
-	function setCookie(name, value)
+	state = loadAndSyncState();
+
+	function isArray(value)
 	{
-		document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; SameSite=Lax';
+		return Object.prototype.toString.call(value) === '[object Array]';
+	}
+
+	function safeParse(raw)
+	{
+		try
+		{
+			return JSON.parse(raw);
+		}
+		catch (error)
+		{
+			return null;
+		}
+	}
+
+	function setCookie(name, value, maxAge)
+	{
+		var cookie = name + '=' + encodeURIComponent(value) + '; path=/; SameSite=Lax';
+
+		if (typeof maxAge === 'number')
+		{
+			cookie += '; max-age=' + maxAge;
+		}
+
+		document.cookie = cookie;
+	}
+
+	function clearCookie(name)
+	{
+		setCookie(name, '', 0);
 	}
 
 	function getCookie(name)
@@ -46,50 +86,20 @@
 		return '';
 	}
 
-	function loadState()
+	function removeStoredState()
 	{
-		var raw = '';
-		var parsed;
-
 		try
 		{
 			if (window.localStorage)
 			{
-				raw = window.localStorage.getItem(payload.storageKey) || '';
+				window.localStorage.removeItem(payload.storageKey);
 			}
 		}
 		catch (error)
 		{
-			raw = '';
 		}
 
-		if (!raw)
-		{
-			raw = getCookie(payload.cookieName);
-		}
-
-		if (!raw)
-		{
-			return null;
-		}
-
-		try
-		{
-			parsed = JSON.parse(raw);
-		}
-		catch (error)
-		{
-			return null;
-		}
-
-		if (!parsed || parsed.version !== payload.version || !parsed.categories)
-		{
-			return null;
-		}
-
-		parsed.categories = normalizeCategories(parsed.categories);
-
-		return parsed;
+		clearCookie(payload.cookieName);
 	}
 
 	function persistState(nextState)
@@ -107,23 +117,120 @@
 		{
 		}
 
-		setCookie(payload.cookieName, serialized);
+		setCookie(payload.cookieName, serialized, 31536000);
 	}
 
 	function normalizeCategories(categories)
 	{
-		var allowed = ['necessary'];
+		var normalized = ['necessary'];
 		var index;
+		var categoryId;
+
+		if (!isArray(categories))
+		{
+			return normalized;
+		}
 
 		for (index = 0; index < categories.length; index++)
 		{
-			if (optionalCategories.indexOf(categories[index]) !== -1)
+			categoryId = String(categories[index]);
+			if (categoryId !== 'necessary' && categoriesById[categoryId] && categoriesById[categoryId].enabled && !categoriesById[categoryId].required)
 			{
-				allowed.push(categories[index]);
+				normalized.push(categoryId);
 			}
 		}
 
-		return unique(allowed);
+		return unique(normalized);
+	}
+
+	function validateState(candidate)
+	{
+		var timestamp;
+
+		if (!candidate || candidate.version !== payload.version || !isArray(candidate.categories))
+		{
+			return null;
+		}
+
+		timestamp = typeof candidate.timestamp === 'string' ? candidate.timestamp : '';
+
+		return {
+			categories: normalizeCategories(candidate.categories),
+			timestamp: timestamp || new Date().toISOString(),
+			version: payload.version
+		};
+	}
+
+	function compareStates(left, right)
+	{
+		return left && right
+			&& left.version === right.version
+			&& left.categories.join('|') === right.categories.join('|')
+			&& left.timestamp === right.timestamp;
+	}
+
+	function choosePreferredState(localState, cookieState)
+	{
+		var localTime;
+		var cookieTime;
+
+		if (localState && cookieState)
+		{
+			localTime = Date.parse(localState.timestamp || '');
+			cookieTime = Date.parse(cookieState.timestamp || '');
+
+			if (!isNaN(localTime) && !isNaN(cookieTime))
+			{
+				return localTime >= cookieTime ? localState : cookieState;
+			}
+		}
+
+		return localState || cookieState || null;
+	}
+
+	function loadAndSyncState()
+	{
+		var localRaw = '';
+		var cookieRaw = getCookie(payload.cookieName);
+		var localState = null;
+		var cookieState = null;
+
+		try
+		{
+			if (window.localStorage)
+			{
+				localRaw = window.localStorage.getItem(payload.storageKey) || '';
+			}
+		}
+		catch (error)
+		{
+			localRaw = '';
+		}
+
+		if (localRaw)
+		{
+			localState = validateState(safeParse(localRaw));
+		}
+
+		if (cookieRaw)
+		{
+			cookieState = validateState(safeParse(cookieRaw));
+		}
+
+		state = choosePreferredState(localState, cookieState);
+
+		if (!state)
+		{
+			removeStoredState();
+			return null;
+		}
+
+		if (!compareStates(localState, state) || !compareStates(cookieState, state))
+		{
+			persistState(state);
+		}
+
+		return state;
 	}
 
 	function unique(items)
@@ -152,9 +259,18 @@
 		return !!(state && state.categories.indexOf(category) !== -1);
 	}
 
+	function getStateSnapshot()
+	{
+		return state ? {
+			categories: state.categories.slice(0),
+			timestamp: state.timestamp,
+			version: state.version
+		} : null;
+	}
+
 	function emitChange()
 	{
-		var snapshot = api.getState();
+		var snapshot = getStateSnapshot();
 		var index;
 
 		for (index = 0; index < listeners.length; index++)
@@ -173,141 +289,47 @@
 		}
 	}
 
-	function setState(categories)
+	function sameCategories(left, right)
 	{
-		state = {
-			categories: normalizeCategories(categories),
-			timestamp: new Date().toISOString(),
-			version: payload.version
-		};
-
-		persistState(state);
-		updateUi();
-		processRegisteredScripts();
-		processDeferredNodes();
-		logDecision();
-		emitChange();
+		return left.join('|') === right.join('|');
 	}
 
-	function registerScript(id, options)
+	function shouldReload(previousState, nextState)
 	{
-		if (!id || !options || !options.category)
-		{
-			return;
-		}
-
-		options.id = id;
-		registry[id] = options;
-		executeScript(options);
-	}
-
-	function applyAttributes(element, attributes)
-	{
-		var name;
-
-		for (name in attributes)
-		{
-			if (attributes.hasOwnProperty(name))
-			{
-				element.setAttribute(name, attributes[name]);
-			}
-		}
-	}
-
-	function executeScript(script)
-	{
-		var element;
-
-		if (!script || executedScripts[script.id] || !hasConsent(script.category))
-		{
-			return;
-		}
-
-		element = document.createElement('script');
-		element.type = 'text/javascript';
-		if (script.src)
-		{
-			element.src = script.src;
-			if (script.async)
-			{
-				element.async = true;
-			}
-			if (script.defer)
-			{
-				element.defer = true;
-			}
-		}
-		else if (script.inline)
-		{
-			element.text = script.inline;
-		}
-
-		if (script.attributes)
-		{
-			applyAttributes(element, script.attributes);
-		}
-
-		document.head.appendChild(element);
-		executedScripts[script.id] = true;
-	}
-
-	function processRegisteredScripts()
-	{
+		var removedCategories = [];
+		var index;
 		var scriptId;
 
-		for (scriptId in registry)
+		if (!previousState)
 		{
-			if (registry.hasOwnProperty(scriptId))
+			return false;
+		}
+
+		for (index = 0; index < previousState.categories.length; index++)
+		{
+			if (previousState.categories[index] !== 'necessary' && nextState.categories.indexOf(previousState.categories[index]) === -1)
 			{
-				executeScript(registry[scriptId]);
+				removedCategories.push(previousState.categories[index]);
 			}
 		}
-	}
 
-	function processDeferredNodes()
-	{
-		var nodes = document.querySelectorAll('script[type="text/plain"][data-consent-category]');
-		var index;
-		var source;
-		var liveScript;
-		var attributeIndex;
-		var attribute;
-
-		for (index = 0; index < nodes.length; index++)
+		for (scriptId in executedScripts)
 		{
-			source = nodes[index];
-
-			if (source.getAttribute('data-consent-processed') === '1' || !hasConsent(source.getAttribute('data-consent-category')))
+			if (executedScripts.hasOwnProperty(scriptId) && removedCategories.indexOf(executedScripts[scriptId]) !== -1)
 			{
-				continue;
+				return true;
 			}
-
-			liveScript = document.createElement('script');
-			liveScript.type = 'text/javascript';
-
-			for (attributeIndex = 0; attributeIndex < source.attributes.length; attributeIndex++)
-			{
-				attribute = source.attributes[attributeIndex];
-				if (attribute.name === 'type' || attribute.name.indexOf('data-consent-') === 0)
-				{
-					continue;
-				}
-
-				liveScript.setAttribute(attribute.name, attribute.value);
-			}
-
-			if (source.src)
-			{
-				liveScript.src = source.src;
-			}
-			else
-			{
-				liveScript.text = source.textContent;
-			}
-
-			source.setAttribute('data-consent-processed', '1');
-			source.parentNode.insertBefore(liveScript, source.nextSibling);
 		}
+
+		for (index = 0; index < removedCategories.length; index++)
+		{
+			if (executedCategories[removedCategories[index]])
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	function logDecision()
@@ -329,90 +351,276 @@
 		}));
 	}
 
-	function groupServices(categoryId)
+	function setState(categories)
 	{
-		var services = [];
+		var nextState = {
+			categories: normalizeCategories(categories),
+			timestamp: new Date().toISOString(),
+			version: payload.version
+		};
+		var reloadRequired = shouldReload(state, nextState);
+
+		if (state && sameCategories(state.categories, nextState.categories))
+		{
+			state.timestamp = nextState.timestamp;
+			persistState(state);
+			updateUi();
+			return;
+		}
+
+		state = nextState;
+		persistState(state);
+		updateUi();
+		processRegisteredScripts();
+		processDeferredNodes(document);
+		logDecision();
+		emitChange();
+
+		if (reloadRequired)
+		{
+			window.location.reload();
+		}
+	}
+
+	function isSafeScriptSource(src)
+	{
+		var link;
+		var protocol;
+
+		if (!src || /[<>"']/.test(src) || src.indexOf('//') === 0 || /^(?:javascript|data|vbscript|file):/i.test(src))
+		{
+			return false;
+		}
+
+		link = document.createElement('a');
+		link.href = src;
+		protocol = (link.protocol || '').toLowerCase();
+
+		return protocol === '' || protocol === 'http:' || protocol === 'https:';
+	}
+
+	function isSafeAttributeName(name)
+	{
+		return !!name
+			&& /^[a-zA-Z_:][a-zA-Z0-9_:\.-]*$/.test(name)
+			&& !/^on/i.test(name)
+			&& ['src', 'type', 'async', 'defer'].indexOf(String(name).toLowerCase()) === -1;
+	}
+
+	function applyAttributes(element, attributes)
+	{
+		var name;
+
+		for (name in attributes)
+		{
+			if (attributes.hasOwnProperty(name) && isSafeAttributeName(name))
+			{
+				element.setAttribute(name, attributes[name]);
+			}
+		}
+	}
+
+	function executeScript(script)
+	{
+		var element;
+
+		if (!script || !script.id || executedScripts[script.id] || !hasConsent(script.category))
+		{
+			return false;
+		}
+
+		if (script.src && !isSafeScriptSource(script.src))
+		{
+			return false;
+		}
+
+		element = document.createElement('script');
+		element.type = 'text/javascript';
+
+		if (script.src)
+		{
+			element.src = script.src;
+			if (script.async)
+			{
+				element.async = true;
+			}
+			if (script.defer)
+			{
+				element.defer = true;
+			}
+		}
+		else if (script.inline)
+		{
+			element.text = script.inline;
+		}
+		else
+		{
+			return false;
+		}
+
+		applyAttributes(element, script.attributes || {});
+		document.head.appendChild(element);
+
+		executedScripts[script.id] = script.category;
+		executedCategories[script.category] = true;
+
+		return true;
+	}
+
+	function registerScript(id, options)
+	{
+		if (!id || !options || !options.category)
+		{
+			return false;
+		}
+
+		registry[id] = {
+			id: String(id),
+			category: String(options.category),
+			src: options.src ? String(options.src) : '',
+			inline: options.inline ? String(options.inline) : '',
+			async: !!options.async,
+			defer: !!options.defer,
+			attributes: options.attributes || {}
+		};
+
+		return executeScript(registry[id]);
+	}
+
+	function processRegisteredScripts()
+	{
+		var scriptId;
+
+		for (scriptId in registry)
+		{
+			if (registry.hasOwnProperty(scriptId))
+			{
+				executeScript(registry[scriptId]);
+			}
+		}
+	}
+
+	function collectDeferredNodes(scope)
+	{
+		var nodes = [];
+		var matched;
 		var index;
 
-		for (index = 0; index < payload.services.length; index++)
+		if (!scope)
 		{
-			if (payload.services[index].category === categoryId && payload.services[index].description)
+			return nodes;
+		}
+
+		if (scope.nodeType === 1 && scope.matches && scope.matches(payload.deferredSelector))
+		{
+			nodes.push(scope);
+		}
+
+		if (scope.querySelectorAll)
+		{
+			matched = scope.querySelectorAll(payload.deferredSelector);
+			for (index = 0; index < matched.length; index++)
 			{
-				services.push(payload.services[index]);
+				nodes.push(matched[index]);
 			}
 		}
 
-		return services;
+		return nodes;
 	}
 
-	function renderUi()
+	function processDeferredNodes(scope)
 	{
-		var bannerHidden = state || !optionalCategories.length ? ' hidden="hidden"' : '';
-		var modalHtml = '';
-		var categoryIndex;
+		var nodes = collectDeferredNodes(scope);
+		var index;
+		var source;
+		var liveScript;
+		var attributeIndex;
+		var attribute;
+		var sourceUrl;
 		var category;
-		var services;
-		var serviceIndex;
 
-		for (categoryIndex = 0; categoryIndex < payload.categories.length; categoryIndex++)
+		for (index = 0; index < nodes.length; index++)
 		{
-			category = payload.categories[categoryIndex];
-			if (!category.enabled)
+			source = nodes[index];
+			category = source.getAttribute('data-consent-category');
+
+			if (source.getAttribute('data-consent-processed') === '1' || !hasConsent(category))
 			{
 				continue;
 			}
 
-			services = groupServices(category.id);
-
-			modalHtml += '<section class="consent-manager-category">';
-			modalHtml += '<div class="consent-manager-category-header">';
-			modalHtml += '<div>';
-			modalHtml += '<h3 class="consent-manager-category-title">' + escapeHtml(category.label) + '</h3>';
-			modalHtml += '<p class="consent-manager-category-description">' + escapeHtml(category.description) + '</p>';
-			if (services.length)
+			sourceUrl = source.getAttribute('src');
+			if (sourceUrl && !isSafeScriptSource(sourceUrl))
 			{
-				modalHtml += '<div class="consent-manager-category-services"><strong>' + escapeHtml(payload.strings.serviceListHeading) + '</strong><ul>';
-				for (serviceIndex = 0; serviceIndex < services.length; serviceIndex++)
-				{
-					modalHtml += '<li><strong>' + escapeHtml(services[serviceIndex].label) + ':</strong> ' + escapeHtml(services[serviceIndex].description) + '</li>';
-				}
-				modalHtml += '</ul></div>';
+				continue;
 			}
-			modalHtml += '</div>';
-			modalHtml += '<label class="consent-manager-toggle">';
-			modalHtml += '<input type="checkbox" data-consent-toggle="' + escapeHtml(category.id) + '"' + (category.required ? ' checked="checked" disabled="disabled"' : '') + '>';
-			modalHtml += '<span>' + (category.required ? escapeHtml(payload.strings.alwaysActive) : escapeHtml(payload.strings.allowed)) + '</span>';
-			modalHtml += '</label>';
-			modalHtml += '</div>';
-			modalHtml += '</section>';
+
+			liveScript = document.createElement('script');
+			liveScript.type = 'text/javascript';
+
+			for (attributeIndex = 0; attributeIndex < source.attributes.length; attributeIndex++)
+			{
+				attribute = source.attributes[attributeIndex];
+				if (attribute.name === 'type' || attribute.name.indexOf('data-consent-') === 0 || attribute.name === 'src')
+				{
+					continue;
+				}
+
+				if (isSafeAttributeName(attribute.name))
+				{
+					liveScript.setAttribute(attribute.name, attribute.value);
+				}
+			}
+
+			if (sourceUrl)
+			{
+				liveScript.src = sourceUrl;
+				if (source.hasAttribute('async'))
+				{
+					liveScript.async = true;
+				}
+				if (source.hasAttribute('defer'))
+				{
+					liveScript.defer = true;
+				}
+			}
+			else
+			{
+				liveScript.text = source.textContent;
+			}
+
+			source.setAttribute('data-consent-processed', '1');
+			source.parentNode.insertBefore(liveScript, source.nextSibling);
+			executedCategories[category] = true;
+		}
+	}
+
+	function observeDeferredNodes()
+	{
+		var observer;
+
+		if (typeof MutationObserver === 'undefined' || !document.documentElement)
+		{
+			return;
 		}
 
-		root.innerHTML = ''
-			+ '<div class="consent-manager-banner" id="consent-manager-banner"' + bannerHidden + '>'
-			+ '<h2 class="consent-manager-heading">' + escapeHtml(payload.banner.title) + '</h2>'
-			+ '<p class="consent-manager-copy">' + escapeHtml(payload.banner.text) + '</p>'
-			+ '<div class="consent-manager-actions">'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="accept-all">' + escapeHtml(payload.strings.acceptAll) + '</button>'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="reject-all">' + escapeHtml(payload.strings.rejectAll) + '</button>'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="open-settings">' + escapeHtml(payload.strings.customize) + '</button>'
-			+ '</div>'
-			+ '</div>'
-			+ '<button type="button" class="consent-manager-link" id="consent-manager-link">' + escapeHtml(payload.strings.cookieSettings) + '</button>'
-			+ '<div class="consent-manager-modal" id="consent-manager-modal" hidden="hidden" role="dialog" aria-modal="true">'
-			+ '<div class="consent-manager-modal-panel">'
-			+ '<div class="consent-manager-actions" style="justify-content: space-between; margin-top: 0;">'
-			+ '<h2 class="consent-manager-heading" style="margin: 0;">' + escapeHtml(payload.banner.title) + '</h2>'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="close-settings">' + escapeHtml(payload.strings.close) + '</button>'
-			+ '</div>'
-			+ '<p class="consent-manager-copy">' + escapeHtml(payload.banner.text) + '</p>'
-			+ modalHtml
-			+ '<div class="consent-manager-actions">'
-			+ '<button type="button" class="consent-manager-button consent-manager-button-primary" data-consent-action="save-settings">' + escapeHtml(payload.strings.savePreferences) + '</button>'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="accept-all">' + escapeHtml(payload.strings.acceptAll) + '</button>'
-			+ '<button type="button" class="consent-manager-button" data-consent-action="reject-all">' + escapeHtml(payload.strings.rejectAll) + '</button>'
-			+ '</div>'
-			+ '</div>'
-			+ '</div>';
+		observer = new MutationObserver(function (mutations) {
+			var mutationIndex;
+			var nodeIndex;
+
+			for (mutationIndex = 0; mutationIndex < mutations.length; mutationIndex++)
+			{
+				for (nodeIndex = 0; nodeIndex < mutations[mutationIndex].addedNodes.length; nodeIndex++)
+				{
+					processDeferredNodes(mutations[mutationIndex].addedNodes[nodeIndex]);
+				}
+			}
+		});
+
+		observer.observe(document.documentElement, {
+			childList: true,
+			subtree: true
+		});
 	}
 
 	function escapeHtml(value)
@@ -425,46 +633,176 @@
 			.replace(/'/g, '&#039;');
 	}
 
-	function openSettings()
+	function ensureRoot()
 	{
-		var modal = document.getElementById('consent-manager-modal');
-		var checkboxes = root.querySelectorAll('[data-consent-toggle]');
-		var index;
-		var checkbox;
-
-		for (index = 0; index < checkboxes.length; index++)
+		if (root && root.parentNode)
 		{
-			checkbox = checkboxes[index];
-			checkbox.checked = hasConsent(checkbox.getAttribute('data-consent-toggle'));
+			return root;
 		}
 
-		modal.hidden = false;
+		root = document.getElementById(payload.rootId);
+		if (!root && document.body)
+		{
+			root = document.createElement('div');
+			root.id = payload.rootId;
+			root.className = 'consent-manager-root';
+			document.body.appendChild(root);
+		}
+
+		return root;
 	}
 
-	function closeSettings()
+	function groupServices(categoryId)
 	{
-		var modal = document.getElementById('consent-manager-modal');
-		if (modal)
+		var services = [];
+		var index;
+
+		for (index = 0; index < payload.services.length; index++)
 		{
-			modal.hidden = true;
+			if (payload.services[index].category === categoryId)
+			{
+				services.push(payload.services[index]);
+			}
+		}
+
+		return services;
+	}
+
+	function renderUi()
+	{
+		var target = ensureRoot();
+		var modalHtml = '';
+		var categoryIndex;
+		var category;
+		var services;
+		var serviceIndex;
+		var serviceHtml;
+
+		if (!target)
+		{
+			return;
+		}
+
+		for (categoryIndex = 0; categoryIndex < payload.categories.length; categoryIndex++)
+		{
+			category = payload.categories[categoryIndex];
+			if (!category.enabled)
+			{
+				continue;
+			}
+
+			services = groupServices(category.id);
+			serviceHtml = '';
+
+			if (services.length)
+			{
+				serviceHtml += '<div class="consent-manager-category-services"><strong>' + escapeHtml(payload.strings.serviceListHeading) + '</strong><ul>';
+				for (serviceIndex = 0; serviceIndex < services.length; serviceIndex++)
+				{
+					serviceHtml += '<li><strong>' + escapeHtml(services[serviceIndex].label) + '</strong>';
+					if (services[serviceIndex].description)
+					{
+						serviceHtml += ': ' + escapeHtml(services[serviceIndex].description);
+					}
+					serviceHtml += '</li>';
+				}
+				serviceHtml += '</ul></div>';
+			}
+
+			modalHtml += ''
+				+ '<section class="consent-manager-category">'
+				+ '<div class="consent-manager-category-header">'
+				+ '<div>'
+				+ '<h3 class="consent-manager-category-title">' + escapeHtml(category.label) + '</h3>'
+				+ '<p class="consent-manager-category-description">' + escapeHtml(category.description) + '</p>'
+				+ serviceHtml
+				+ '</div>'
+				+ '<label class="consent-manager-toggle">'
+				+ '<input type="checkbox" data-consent-toggle="' + escapeHtml(category.id) + '"' + (category.required ? ' checked="checked" disabled="disabled"' : '') + '>'
+				+ '<span>' + escapeHtml(category.required ? payload.strings.alwaysActive : payload.strings.allowed) + '</span>'
+				+ '</label>'
+				+ '</div>'
+				+ '</section>';
+		}
+
+		target.innerHTML = ''
+			+ '<div class="consent-manager-banner" id="consent-manager-banner" role="region" aria-labelledby="consent-manager-banner-title" aria-describedby="consent-manager-banner-copy">'
+			+ '<h2 class="consent-manager-heading" id="consent-manager-banner-title">' + escapeHtml(payload.banner.title) + '</h2>'
+			+ '<p class="consent-manager-copy" id="consent-manager-banner-copy">' + escapeHtml(payload.banner.text) + '</p>'
+			+ '<div class="consent-manager-actions">'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="accept-all">' + escapeHtml(payload.strings.acceptAll) + '</button>'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="reject-all">' + escapeHtml(payload.strings.rejectAll) + '</button>'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="open-settings">' + escapeHtml(payload.strings.customize) + '</button>'
+			+ '</div>'
+			+ '</div>'
+			+ '<button type="button" class="consent-manager-link" id="consent-manager-link" hidden="hidden" aria-controls="consent-manager-modal">' + escapeHtml(payload.strings.cookieSettings) + '</button>'
+			+ '<div class="consent-manager-modal" id="consent-manager-modal" hidden="hidden" role="dialog" aria-modal="true" aria-labelledby="consent-manager-modal-title" aria-describedby="consent-manager-modal-copy">'
+			+ '<div class="consent-manager-modal-panel" tabindex="-1">'
+			+ '<div class="consent-manager-actions" style="justify-content: space-between; margin-top: 0;">'
+			+ '<h2 class="consent-manager-heading" id="consent-manager-modal-title" style="margin: 0;">' + escapeHtml(payload.strings.settingsTitle) + '</h2>'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="close-settings">' + escapeHtml(payload.strings.close) + '</button>'
+			+ '</div>'
+			+ '<p class="consent-manager-copy" id="consent-manager-modal-copy">' + escapeHtml(payload.banner.text) + '</p>'
+			+ modalHtml
+			+ '<div class="consent-manager-actions">'
+			+ '<button type="button" class="consent-manager-button consent-manager-button-primary" data-consent-action="save-settings">' + escapeHtml(payload.strings.savePreferences) + '</button>'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="accept-all">' + escapeHtml(payload.strings.acceptAll) + '</button>'
+			+ '<button type="button" class="consent-manager-button" data-consent-action="reject-all">' + escapeHtml(payload.strings.rejectAll) + '</button>'
+			+ '</div>'
+			+ '</div>'
+			+ '</div>';
+
+		isRendered = true;
+		updateUi();
+
+		if (!isBound)
+		{
+			bindUi();
+		}
+
+		if (pendingOpenSettings)
+		{
+			pendingOpenSettings = false;
+			openSettings();
 		}
 	}
 
 	function updateUi()
 	{
-		var banner = document.getElementById('consent-manager-banner');
+		var banner;
+		var link;
+
+		if (!isRendered)
+		{
+			return;
+		}
+
+		banner = document.getElementById('consent-manager-banner');
+		link = document.getElementById('consent-manager-link');
+
 		if (banner)
 		{
 			banner.hidden = !!state || !optionalCategories.length;
+		}
+
+		if (link)
+		{
+			link.hidden = !state || !optionalCategories.length;
 		}
 	}
 
 	function selectedOptionalCategories()
 	{
 		var selected = [];
-		var checkboxes = root.querySelectorAll('[data-consent-toggle]');
+		var checkboxes;
 		var index;
 
+		if (!root)
+		{
+			return selected;
+		}
+
+		checkboxes = root.querySelectorAll('[data-consent-toggle]');
 		for (index = 0; index < checkboxes.length; index++)
 		{
 			if (checkboxes[index].checked)
@@ -476,16 +814,166 @@
 		return selected;
 	}
 
+	function getModal()
+	{
+		return document.getElementById('consent-manager-modal');
+	}
+
+	function getModalPanel()
+	{
+		var modal = getModal();
+		return modal ? modal.querySelector('.consent-manager-modal-panel') : null;
+	}
+
+	function getFocusableNodes(container)
+	{
+		var nodes;
+		var focusable = [];
+		var index;
+
+		if (!container)
+		{
+			return focusable;
+		}
+
+		nodes = container.querySelectorAll('a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])');
+		for (index = 0; index < nodes.length; index++)
+		{
+			if (!nodes[index].hidden)
+			{
+				focusable.push(nodes[index]);
+			}
+		}
+
+		return focusable;
+	}
+
+	function handleModalKeydown(event)
+	{
+		var modal = getModal();
+		var focusable;
+		var first;
+		var last;
+
+		if (!modal || modal.hidden)
+		{
+			return;
+		}
+
+		if (event.key === 'Escape')
+		{
+			closeSettings();
+			return;
+		}
+
+		if (event.key !== 'Tab')
+		{
+			return;
+		}
+
+		focusable = getFocusableNodes(getModalPanel());
+		if (!focusable.length)
+		{
+			return;
+		}
+
+		first = focusable[0];
+		last = focusable[focusable.length - 1];
+
+		if (event.shiftKey && document.activeElement === first)
+		{
+			last.focus();
+			event.preventDefault();
+		}
+		else if (!event.shiftKey && document.activeElement === last)
+		{
+			first.focus();
+			event.preventDefault();
+		}
+	}
+
+	function openSettings()
+	{
+		var modal;
+		var panel;
+		var checkboxes;
+		var index;
+
+		if (!isRendered)
+		{
+			pendingOpenSettings = true;
+			return;
+		}
+
+		modal = getModal();
+		panel = getModalPanel();
+		checkboxes = root.querySelectorAll('[data-consent-toggle]');
+
+		for (index = 0; index < checkboxes.length; index++)
+		{
+			checkboxes[index].checked = hasConsent(checkboxes[index].getAttribute('data-consent-toggle'));
+		}
+
+		lastFocusedElement = document.activeElement;
+		modal.hidden = false;
+
+		if (document.body)
+		{
+			document.body.classList.add('consent-manager-open');
+		}
+
+		if (!keydownBound)
+		{
+			document.addEventListener('keydown', handleModalKeydown);
+			keydownBound = true;
+		}
+
+		if (panel)
+		{
+			panel.focus();
+		}
+	}
+
+	function closeSettings()
+	{
+		var modal = getModal();
+
+		if (!modal)
+		{
+			return;
+		}
+
+		modal.hidden = true;
+
+		if (document.body)
+		{
+			document.body.classList.remove('consent-manager-open');
+		}
+
+		if (keydownBound)
+		{
+			document.removeEventListener('keydown', handleModalKeydown);
+			keydownBound = false;
+		}
+
+		if (lastFocusedElement && typeof lastFocusedElement.focus === 'function')
+		{
+			lastFocusedElement.focus();
+		}
+	}
+
 	function bindUi()
 	{
 		root.addEventListener('click', function (event) {
 			var action = event.target.getAttribute('data-consent-action');
+
 			if (!action)
 			{
 				if (event.target.id === 'consent-manager-link')
 				{
 					openSettings();
 				}
+
 				return;
 			}
 
@@ -513,29 +1001,39 @@
 				closeSettings();
 			}
 		});
+
+		isBound = true;
+	}
+
+	function onChange(callback)
+	{
+		if (typeof callback !== 'function')
+		{
+			return;
+		}
+
+		listeners.push(callback);
+		callback(getStateSnapshot());
+	}
+
+	function ready(callback)
+	{
+		if (typeof callback !== 'function')
+		{
+			return;
+		}
+
+		callback(api);
 	}
 
 	var api = {
 		registerScript: registerScript,
 		hasConsent: hasConsent,
+		onChange: onChange,
 		openSettings: openSettings,
-		onChange: function (callback) {
-			if (typeof callback === 'function')
-			{
-				listeners.push(callback);
-			}
-		},
-		getState: function () {
-			return state ? {
-				categories: state.categories.slice(0),
-				timestamp: state.timestamp,
-				version: state.version
-			} : null;
-		}
+		getState: getStateSnapshot,
+		ready: ready
 	};
-
-	renderUi();
-	bindUi();
 
 	window.consentManager = api;
 
@@ -552,15 +1050,28 @@
 		}
 		else if (queued[i][0] === 'onChange')
 		{
-			api.onChange(queued[i][1]);
+			onChange(queued[i][1]);
 		}
 		else if (queued[i][0] === 'openSettings')
 		{
-			openSettings();
+			pendingOpenSettings = true;
+		}
+		else if (queued[i][0] === 'ready')
+		{
+			ready(queued[i][1]);
 		}
 	}
 
-	updateUi();
 	processRegisteredScripts();
-	processDeferredNodes();
+	processDeferredNodes(document);
+	observeDeferredNodes();
+
+	if (document.readyState === 'loading')
+	{
+		document.addEventListener('DOMContentLoaded', renderUi);
+	}
+	else
+	{
+		renderUi();
+	}
 })(window, document);

@@ -2,7 +2,16 @@
 	{% INCLUDECSS '@phpbb_consentmanager/consentmanager.css' %}
 	<script>
 	(function (window, document) {
-		var config = {{ CONSENTMANAGER_BOOTSTRAP|raw }};
+		var payload = {{ CONSENTMANAGER_PAYLOAD|raw }};
+		var categoryMap = {};
+		var index;
+
+		window.phpbbConsentManagerPayload = payload;
+
+		for (index = 0; index < payload.categories.length; index++)
+		{
+			categoryMap[payload.categories[index].id] = payload.categories[index];
+		}
 
 		function parseCookie(name)
 		{
@@ -29,7 +38,7 @@
 			{
 				if (window.localStorage)
 				{
-					raw = window.localStorage.getItem(config.storageKey) || '';
+					raw = window.localStorage.getItem(payload.storageKey) || '';
 				}
 			}
 			catch (error)
@@ -39,7 +48,7 @@
 
 			if (!raw)
 			{
-				raw = parseCookie(config.cookieName);
+				raw = parseCookie(payload.cookieName);
 			}
 
 			if (!raw)
@@ -56,7 +65,7 @@
 				return null;
 			}
 
-			if (!state || state.version !== config.version || !state.categories || !state.categories.length)
+			if (!state || state.version !== payload.version || !state.categories || !state.categories.length)
 			{
 				return null;
 			}
@@ -75,11 +84,15 @@
 		stub.openSettings = stub.openSettings || function () {
 			stub._queue.push(['openSettings']);
 		};
+		stub.ready = stub.ready || function (callback) {
+			stub._queue.push(['ready', callback]);
+		};
 		stub.hasConsent = stub.hasConsent || function (category) {
 			var state = loadState();
-			return category === 'necessary' || !!(state && state.categories.indexOf(category) !== -1);
+			return category === 'necessary' || !!(state && categoryMap[category] && categoryMap[category].enabled && state.categories.indexOf(category) !== -1);
 		};
 		window.consentManager = stub;
 	})(window, document);
 	</script>
+	{% INCLUDEJS '@phpbb_consentmanager/js/consentmanager.js' %}
 {% endif %}
