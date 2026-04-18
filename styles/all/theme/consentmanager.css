@@ -29,7 +29,7 @@
 
 .consent-manager-banner[hidden],
 .consent-manager-modal[hidden],
-.consent-manager-link[hidden] {
+#consent-manager-link-item[hidden] {
 	display: none;
 }
 
@@ -86,20 +86,6 @@
 .consent-manager-button-primary:hover,
 .consent-manager-button-primary:focus {
 	background: #1f2937;
-}
-
-.consent-manager-link {
-	position: fixed;
-	left: 1rem;
-	bottom: 1rem;
-	padding: 0.65rem 0.95rem;
-	border: 1px solid rgba(18, 41, 64, 0.16);
-	border-radius: 999px;
-	background: #fff;
-	box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12);
-	color: #111827;
-	font-weight: 600;
-	cursor: pointer;
 }
 
 .consent-manager-modal {
@@ -183,11 +169,6 @@
 	.consent-manager-banner {
 		left: 0.75rem;
 		right: 0.75rem;
-		bottom: 0.75rem;
-	}
-
-	.consent-manager-link {
-		left: 0.75rem;
 		bottom: 0.75rem;
 	}
 
