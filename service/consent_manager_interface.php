@@ -30,9 +30,5 @@ interface consent_manager_interface
 
 	public function get_version();
 
-	public function get_banner_title();
-
-	public function get_banner_text();
-
 	public function is_category_enabled($category);
 }

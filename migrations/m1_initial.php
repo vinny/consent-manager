@@ -59,8 +59,6 @@ class m1_initial extends \phpbb\db\migration\migration
 			array('config.add', array('consentmanager_analytics_enabled', 1)),
 			array('config.add', array('consentmanager_marketing_enabled', 1)),
 			array('config.add', array('consentmanager_consent_version', 1)),
-			array('config_text.add', array('consentmanager_banner_title', 'We value your privacy')),
-			array('config_text.add', array('consentmanager_banner_text', 'We use necessary cookies to keep the forum secure and optional analytics and marketing technologies only when you allow them.')),
 			array('config_text.add', array('consentmanager_integrations', '[]')),
 			array('module.add', array('acp', 'ACP_CAT_DOT_MODS', 'ACP_CONSENTMANAGER')),
 			array('module.add', array('acp', 'ACP_CONSENTMANAGER', array(
@@ -76,8 +74,6 @@ class m1_initial extends \phpbb\db\migration\migration
 			array('config.remove', array('consentmanager_analytics_enabled')),
 			array('config.remove', array('consentmanager_marketing_enabled')),
 			array('config.remove', array('consentmanager_consent_version')),
-			array('config_text.remove', array('consentmanager_banner_title')),
-			array('config_text.remove', array('consentmanager_banner_text')),
 			array('config_text.remove', array('consentmanager_integrations')),
 			array('module.remove', array('acp', 'ACP_CONSENTMANAGER', 'ACP_CONSENTMANAGER_SETTINGS')),
 			array('module.remove', array('acp', 'ACP_CAT_DOT_MODS', 'ACP_CONSENTMANAGER')),

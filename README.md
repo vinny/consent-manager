@@ -10,7 +10,7 @@ Out of the box, the extension supports these categories:
 - `analytics`
 - `marketing`
 
-It also includes ACP settings for banner text, category availability, simple admin-managed integrations, server-side logging of consent decisions, and consent version resets.
+It also includes ACP settings for category availability, simple admin-managed integrations, server-side logging of consent decisions, and consent version resets.
 
 Consent Manager is designed to coordinate consent for **cooperating integrations**.
 

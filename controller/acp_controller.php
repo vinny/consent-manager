@@ -116,17 +116,13 @@ class acp_controller
 
 	protected function assign_template_vars(array $errors = array())
 	{
-		$integrations = $this->config_text->get('consentmanager_integrations');
-		$banner_title = $this->config_text->get('consentmanager_banner_title');
-		$banner_text = $this->config_text->get('consentmanager_banner_text');
+		$integrations = (string) $this->config_text->get('consentmanager_integrations');
 
 		$this->template->assign_vars(array(
 			'S_ERROR'						=> !empty($errors),
 			'ERROR_MSG'						=> implode('<br>', $errors),
 			'S_CONSENTMANAGER_ANALYTICS'	=> (bool) $this->config['consentmanager_analytics_enabled'],
 			'S_CONSENTMANAGER_MARKETING'	=> (bool) $this->config['consentmanager_marketing_enabled'],
-			'CONSENTMANAGER_BANNER_TITLE'	=> $banner_title !== '' ? $banner_title : $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TITLE'),
-			'CONSENTMANAGER_BANNER_TEXT'	=> $banner_text !== '' ? $banner_text : $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TEXT'),
 			'CONSENTMANAGER_INTEGRATIONS'	=> $integrations !== '' ? $integrations : "[]",
 			'CONSENTMANAGER_VERSION'		=> (int) $this->config['consentmanager_consent_version'],
 			'U_ACTION'						=> $this->u_action,
@@ -138,20 +134,8 @@ class acp_controller
 		$errors = array();
 		$analytics_enabled = $this->request->variable('consentmanager_analytics_enabled', 0);
 		$marketing_enabled = $this->request->variable('consentmanager_marketing_enabled', 0);
-		$banner_title = trim($this->request->variable('consentmanager_banner_title', '', true));
-		$banner_text = trim($this->request->variable('consentmanager_banner_text', '', true));
 		$integrations_input = trim($this->request->raw_variable('consentmanager_integrations', ''));
-		$integrations = $this->consent_manager->normalize_integrations($integrations_input, $errors);
-
-		if ($banner_title === '')
-		{
-			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_TITLE_REQUIRED');
-		}
-
-		if ($banner_text === '')
-		{
-			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_TEXT_REQUIRED');
-		}
+		$this->consent_manager->normalize_integrations($integrations_input, $errors);
 
 		if (!empty($errors))
 		{
@@ -166,8 +150,6 @@ class acp_controller
 
 		$this->config->set('consentmanager_analytics_enabled', $analytics_enabled);
 		$this->config->set('consentmanager_marketing_enabled', $marketing_enabled);
-		$this->config_text->set('consentmanager_banner_title', $banner_title);
-		$this->config_text->set('consentmanager_banner_text', $banner_text);
 		$this->config_text->set('consentmanager_integrations', $stored_integrations);
 
 		return array();

@@ -129,8 +129,8 @@ class consent_manager implements consent_manager_interface
 			'services' => array_values($services),
 			'scripts' => array_values($scripts),
 			'banner' => array(
-				'title' => $this->get_banner_title(),
-				'text' => $this->get_banner_text(),
+				'title' => $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TITLE'),
+				'text' => $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TEXT'),
 			),
 			'strings' => array(
 				'acceptAll' => $this->language->lang('CONSENTMANAGER_ACCEPT_ALL'),
@@ -326,18 +326,6 @@ class consent_manager implements consent_manager_interface
 	public function get_version()
 	{
 		return (int) $this->config['consentmanager_consent_version'];
-	}
-
-	public function get_banner_title()
-	{
-		$title = $this->config_text->get('consentmanager_banner_title');
-		return $title !== '' ? $title : $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TITLE');
-	}
-
-	public function get_banner_text()
-	{
-		$text = $this->config_text->get('consentmanager_banner_text');
-		return $text !== '' ? $text : $this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TEXT');
 	}
 
 	public function is_category_enabled($category)
