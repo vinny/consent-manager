@@ -95,6 +95,9 @@
 		stub.registerScript = stub.registerScript || function (id, options) {
 			stub._queue.push(['registerScript', id, options]);
 		};
+		stub.onConsent = stub.onConsent || function (category, callback) {
+			stub._queue.push(['onConsent', category, callback]);
+		};
 		stub.onChange = stub.onChange || function (callback) {
 			stub._queue.push(['onChange', callback]);
 		};

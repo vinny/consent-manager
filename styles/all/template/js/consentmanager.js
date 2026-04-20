@@ -5,6 +5,7 @@
 	var existingApi = window.consentManager || {};
 	var queued = existingApi._queue ? existingApi._queue.slice(0) : [];
 	var listeners = [];
+	var consentCallbacks = [];
 	var registry = {};
 	var executedScripts = {};
 	var executedCategories = {};
@@ -328,6 +329,42 @@
 		}
 	}
 
+	function runConsentCallback(entry)
+	{
+		if (!entry || entry.fired || !hasConsent(entry.category))
+		{
+			return false;
+		}
+
+		entry.fired = true;
+
+		try
+		{
+			entry.callback(getStateSnapshot());
+			executedCategories[entry.category] = true;
+			return true;
+		}
+		catch (error)
+		{
+			if (window.console && typeof window.console.error === 'function')
+			{
+				window.console.error(error);
+			}
+		}
+
+		return false;
+	}
+
+	function processConsentCallbacks()
+	{
+		var index;
+
+		for (index = 0; index < consentCallbacks.length; index++)
+		{
+			runConsentCallback(consentCallbacks[index]);
+		}
+	}
+
 	function sameCategories(left, right)
 	{
 		return left.join('|') === right.join('|');
@@ -412,6 +449,7 @@
 		updateUi();
 		processRegisteredScripts();
 		processDeferredNodes(document);
+		processConsentCallbacks();
 		logDecision();
 		emitChange();
 
@@ -1071,6 +1109,27 @@
 		callback(getStateSnapshot());
 	}
 
+	function onConsent(category, callback)
+	{
+		var entry;
+
+		if (typeof callback !== 'function' || typeof category === 'undefined' || category === null)
+		{
+			return false;
+		}
+
+		entry = {
+			category: String(category),
+			callback: callback,
+			fired: false
+		};
+
+		consentCallbacks.push(entry);
+		runConsentCallback(entry);
+
+		return true;
+	}
+
 	function ready(callback)
 	{
 		if (typeof callback !== 'function')
@@ -1084,6 +1143,7 @@
 	var api = {
 		registerScript: registerScript,
 		hasConsent: hasConsent,
+		onConsent: onConsent,
 		onChange: onChange,
 		openSettings: openSettings,
 		getState: getStateSnapshot,
@@ -1107,6 +1167,10 @@
 		{
 			onChange(queued[i][1]);
 		}
+		else if (queued[i][0] === 'onConsent')
+		{
+			onConsent(queued[i][1], queued[i][2]);
+		}
 		else if (queued[i][0] === 'openSettings')
 		{
 			pendingOpenSettings = true;
@@ -1119,6 +1183,7 @@
 
 	processRegisteredScripts();
 	processDeferredNodes(document);
+	processConsentCallbacks();
 	observeDeferredNodes();
 
 	if (document.readyState === 'loading')

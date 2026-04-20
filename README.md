@@ -21,7 +21,7 @@ Consent Manager is designed to coordinate consent for **cooperating extensions**
 If your extension adds analytics, advertising, or other tracking/cookie-related JavaScript, this is the usual integration path:
 
 1. register your tracking integration in PHP
-2. if your extension uses `INCLUDEJS`, add a small consent check in that JS file where tracking starts
+2. if your extension uses `INCLUDEJS`, keep that include and add a one-line `onConsent()` call where tracking starts
 3. if your extension outputs direct `<script>` tags in templates, convert those tags into consent-aware placeholder tags
 
 ### 1. Register in PHP
@@ -86,7 +86,7 @@ $consent_manager->register('ext.example.ads', [
 
 That works well for stable external URLs such as ad, analytics, or tag-loader scripts.
 
-For extension-owned JavaScript files that you normally load with `INCLUDEJS`, the better pattern is usually to keep using `INCLUDEJS` and add a small consent check in the JS file instead of routing that local file through the `scripts` array.
+For extension-owned JavaScript files that you normally load with `INCLUDEJS`, the better pattern is usually to keep using `INCLUDEJS` and call `window.consentManager.onConsent()` in that JS file instead of routing that local file through the `scripts` array.
 
 #### Registration rules
 
@@ -106,7 +106,7 @@ Keep the include:
 {% INCLUDEJS '@vendor_extension/js/feature.js' %}
 ```
 
-Then add a small consent check around the place where tracking starts:
+Then gate the tracking bootstrap with `onConsent()`:
 
 ```js
 (function (window) {
@@ -114,32 +114,15 @@ Then add a small consent check around the place where tracking starts:
 		// Existing analytics / cookie logic
 	}
 
-	if (window.consentManager) {
-		window.consentManager.ready(function (consentManager) {
-			if (consentManager && typeof consentManager.hasConsent === 'function') {
-				if (consentManager.hasConsent('analytics')) {
-					startTracking();
-				}
-
-				consentManager.onChange(function (state) {
-					if (state && state.categories.indexOf('analytics') !== -1) {
-						startTracking();
-					}
-				});
-
-				return;
-			}
-
-			startTracking();
-		});
-		return;
+	if (window.consentManager && typeof window.consentManager.onConsent === 'function') {
+		window.consentManager.onConsent('analytics', startTracking);
+	} else {
+		startTracking();
 	}
-
-	startTracking();
 })(window);
 ```
 
-That is the normal pattern for extension-local JS files.
+That is the normal pattern for extension-local JS files. It keeps your existing `INCLUDEJS` usage, runs once immediately when consent already exists, runs once later if the visitor grants consent after page load, and still lets the extension behave normally when Consent Manager is absent.
 
 ### 3. If your extension outputs direct script tags
 
@@ -165,18 +148,31 @@ Consent Manager also exposes a small runtime object at `window.consentManager`.
 
 For most extensions, the main helpers are:
 
+- `onConsent(category, callback)`
 - `hasConsent(category)`
 - `onChange(callback)`
 - `ready(callback)`
 - `openSettings()`
 
-Simple example:
+Preferred example for `INCLUDEJS`-loaded extension code:
 
 ```js
-if (window.consentManager.hasConsent('marketing')) {
+window.consentManager.onConsent('marketing', loadAds);
+```
+
+If your extension should still run normally without Consent Manager being installed:
+
+```js
+if (window.consentManager && typeof window.consentManager.onConsent === 'function') {
+	window.consentManager.onConsent('marketing', loadAds);
+} else {
 	loadAds();
 }
+```
 
+Lower-level example:
+
+```js
 window.consentManager.onChange(function (state) {
 	if (state && state.categories.indexOf('marketing') !== -1) {
 		loadAds();
@@ -203,6 +199,8 @@ window.consentManager.ready(function (consentManager) {
 	}
 });
 ```
+
+`onChange()` is invoked immediately with the current state, so `onConsent()` is the safer default when you want a once-only "run this code after consent" hook.
 
 ## ACP-managed integrations
 
