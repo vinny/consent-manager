@@ -751,7 +751,7 @@ class consent_manager implements consent_manager_interface
 			$name = trim((string) $name);
 			if ($name === ''
 				|| !preg_match('/^[a-zA-Z_:][a-zA-Z0-9_:.-]*$/', $name)
-				|| 0 === stripos($name, "on")
+				|| 0 === stripos($name, 'on')
 				|| in_array(strtolower($name), ['src', 'type', 'async', 'defer'], true))
 			{
 				continue;

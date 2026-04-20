@@ -34,7 +34,7 @@
 		<legend>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') }}</legend>
 		<dl>
 			<dt><label for="consentmanager_integrations">{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') ~ lang('COLON') }}</label><br><span>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS_EXPLAIN') }}</span><br>
-				<span><strong>Example:</strong></span>
+				<span><strong>{{ lang('EXAMPLE') ~ lang('COLON') }}</strong></span>
 				<pre>
 					<code>
 [
@@ -50,7 +50,7 @@
 					</code>
 				</pre>
 			</dt>
-			<dd><textarea id="consentmanager_integrations" name="consentmanager_integrations" rows="14" cols="90">{{ CONSENTMANAGER_INTEGRATIONS }}</textarea></dd>
+			<dd><textarea id="consentmanager_integrations" name="consentmanager_integrations" rows="14" cols="90">{{ CONSENTMANAGER_INTEGRATIONS|e('html') }}</textarea></dd>
 		</dl>
 	</fieldset>
 
