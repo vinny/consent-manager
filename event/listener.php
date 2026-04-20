@@ -30,6 +30,14 @@ class listener implements EventSubscriberInterface
 	/** @var template */
 	protected $template;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param helper                    $helper Controller helper
+	 * @param language                  $language Language service
+	 * @param consent_manager_interface $consent_manager Consent manager service
+	 * @param template                  $template Template service
+	 */
 	public function __construct(helper $helper, language $language, consent_manager_interface $consent_manager, template $template)
 	{
 		$this->helper = $helper;
@@ -38,6 +46,11 @@ class listener implements EventSubscriberInterface
 		$this->template = $template;
 	}
 
+	/**
+	 * Return the subscribed phpBB events.
+	 *
+	 * @return array
+	 */
 	public static function getSubscribedEvents()
 	{
 		return [
@@ -45,6 +58,11 @@ class listener implements EventSubscriberInterface
 		];
 	}
 
+	/**
+	 * Inject consent manager frontend data on board pages.
+	 *
+	 * @return void
+	 */
 	public function inject_frontend()
 	{
 		if (defined('ADMIN_START') || defined('IN_INSTALL'))

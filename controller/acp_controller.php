@@ -36,6 +36,15 @@ class acp_controller
 	/** @var string */
 	protected $u_action = '';
 
+	/**
+	 * Constructor.
+	 *
+	 * @param language                  $language Language service
+	 * @param consent_manager_interface $consent_manager Consent manager service
+	 * @param log_manager               $log_manager Consent log manager
+	 * @param request                   $request Request service
+	 * @param template                  $template Template service
+	 */
 	public function __construct(language $language, consent_manager_interface $consent_manager, log_manager $log_manager, request $request, template $template)
 	{
 		$this->language = $language;
@@ -47,11 +56,23 @@ class acp_controller
 		$this->language->add_lang('acp_consentmanager', 'phpbb/consentmanager');
 	}
 
+	/**
+	 * Set the ACP page URL used by form actions and backlinks.
+	 *
+	 * @param string $u_action ACP page URL
+	 *
+	 * @return void
+	 */
 	public function set_page_url($u_action)
 	{
 		$this->u_action = $u_action;
 	}
 
+	/**
+	 * Handle the ACP settings page request.
+	 *
+	 * @return void
+	 */
 	public function handle()
 	{
 		add_form_key('phpbb_consentmanager_acp');
@@ -90,6 +111,13 @@ class acp_controller
 		$this->assign_template_vars();
 	}
 
+	/**
+	 * Assign consent manager settings to the ACP template.
+	 *
+	 * @param array $errors Validation errors to display
+	 *
+	 * @return void
+	 */
 	protected function assign_template_vars(array $errors = [])
 	{
 		$this->template->assign_vars(array_merge(
@@ -102,6 +130,11 @@ class acp_controller
 		));
 	}
 
+	/**
+	 * Ensure the ACP form key is valid before processing changes.
+	 *
+	 * @return void
+	 */
 	protected function validate_form_key()
 	{
 		if (!check_form_key('phpbb_consentmanager_acp'))

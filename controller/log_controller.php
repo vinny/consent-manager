@@ -24,12 +24,25 @@ class log_controller
 	/** @var consent_manager_interface */
 	protected $consent_manager;
 
+	/**
+	 * Constructor.
+	 *
+	 * @param log_manager               $log_manager Consent log manager
+	 * @param consent_manager_interface $consent_manager Consent manager service
+	 */
 	public function __construct(log_manager $log_manager, consent_manager_interface $consent_manager)
 	{
 		$this->log_manager = $log_manager;
 		$this->consent_manager = $consent_manager;
 	}
 
+	/**
+	 * Log a consent submission from the frontend.
+	 *
+	 * @param Request $request HTTP request containing the consent payload
+	 *
+	 * @return JsonResponse
+	 */
 	public function log(Request $request)
 	{
 		$payload = json_decode($request->getContent(), true);
@@ -60,6 +73,13 @@ class log_controller
 		]);
 	}
 
+	/**
+	 * Map consent submission errors to HTTP status codes.
+	 *
+	 * @param string $error Error identifier
+	 *
+	 * @return int
+	 */
 	protected function get_error_status_code($error)
 	{
 		switch ($error)

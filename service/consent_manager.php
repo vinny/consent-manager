@@ -49,6 +49,17 @@ class consent_manager implements consent_manager_interface
 	/** @var array */
 	protected $registrations = [];
 
+	/**
+	 * Constructor.
+	 *
+	 * @param config               $config Config service
+	 * @param db_text              $config_text Text configuration storage
+	 * @param language             $language Language service
+	 * @param dispatcher_interface $dispatcher Event dispatcher
+	 * @param environment          $twig_environment Twig environment
+	 * @param path_helper          $path_helper Path helper
+	 * @param filesystem           $filesystem Filesystem helper
+	 */
 	public function __construct(config $config, db_text $config_text, language $language, dispatcher_interface $dispatcher, environment $twig_environment, path_helper $path_helper, filesystem $filesystem)
 	{
 		$this->config = $config;
@@ -125,6 +136,14 @@ class consent_manager implements consent_manager_interface
 		return true;
 	}
 
+	/**
+	 * Build template variables for rendering the frontend consent UI.
+	 *
+	 * @param string $log_url Consent logging endpoint URL
+	 * @param string $log_hash Link hash for consent logging
+	 *
+	 * @return array
+	 */
 	public function get_frontend_template_data($log_url, $log_hash)
 	{
 		$payload = $this->build_frontend_payload($log_url, $log_hash);
@@ -138,6 +157,11 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Build template variables for the ACP settings page.
+	 *
+	 * @return array
+	 */
 	public function get_acp_template_data()
 	{
 		$integrations = (string) $this->config_text->get('consentmanager_integrations');
@@ -150,6 +174,14 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Validate and persist ACP consent manager settings.
+	 *
+	 * @param array $settings Submitted settings
+	 * @param array $errors   Validation errors
+	 *
+	 * @return bool
+	 */
 	public function save_acp_settings(array $settings, array &$errors = [])
 	{
 		$errors = [];
@@ -170,11 +202,23 @@ class consent_manager implements consent_manager_interface
 		return true;
 	}
 
+	/**
+	 * Increment the consent version to force a fresh prompt.
+	 *
+	 * @return void
+	 */
 	public function reset_consent_version()
 	{
 		$this->config->set('consentmanager_consent_version', $this->get_version() + 1);
 	}
 
+	/**
+	 * Validate a consent logging payload from the frontend.
+	 *
+	 * @param array $payload Submitted payload
+	 *
+	 * @return array
+	 */
 	public function validate_log_payload(array $payload)
 	{
 		$hash = isset($payload['hash']) ? (string) $payload['hash'] : '';
@@ -204,6 +248,14 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Build the frontend consent manager payload.
+	 *
+	 * @param string $log_url Consent logging endpoint URL
+	 * @param string $log_hash Link hash for consent logging
+	 *
+	 * @return array
+	 */
 	public function build_frontend_payload($log_url, $log_hash)
 	{
 		$this->collect_registrations();
@@ -254,6 +306,11 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Return the consent categories exposed to the frontend.
+	 *
+	 * @return array
+	 */
 	public function get_categories()
 	{
 		return [
@@ -281,6 +338,11 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Return registered services that are active for the current configuration.
+	 *
+	 * @return array
+	 */
 	public function get_services()
 	{
 		$services = $this->registrations;
@@ -301,6 +363,11 @@ class consent_manager implements consent_manager_interface
 		return $services;
 	}
 
+	/**
+	 * Return integrations configured through ACP storage.
+	 *
+	 * @return array
+	 */
 	public function get_configured_integrations()
 	{
 		$raw = $this->config_text->get('consentmanager_integrations');
@@ -402,6 +469,13 @@ class consent_manager implements consent_manager_interface
 		return array_values($integrations);
 	}
 
+	/**
+	 * Normalize category selections to valid enabled category ids.
+	 *
+	 * @param array $categories Submitted category ids
+	 *
+	 * @return array
+	 */
 	public function normalize_categories(array $categories)
 	{
 		$normalized = ['necessary'];
@@ -418,32 +492,66 @@ class consent_manager implements consent_manager_interface
 		return array_values(array_unique($normalized));
 	}
 
+	/**
+	 * Return the client-side storage key for consent data.
+	 *
+	 * @return string
+	 */
 	public function get_storage_key()
 	{
 		return self::STORAGE_KEY;
 	}
 
+	/**
+	 * Return the consent cookie name.
+	 *
+	 * @return string
+	 */
 	public function get_cookie_name()
 	{
 		return self::COOKIE_NAME;
 	}
 
+	/**
+	 * Return the current consent version.
+	 *
+	 * @return int
+	 */
 	public function get_version()
 	{
 		return (int) $this->config['consentmanager_consent_version'];
 	}
 
+	/**
+	 * Determine whether a category is enabled in the current configuration.
+	 *
+	 * @param string $category Category identifier
+	 *
+	 * @return bool
+	 */
 	public function is_category_enabled($category)
 	{
 		$categories = $this->get_categories();
 		return isset($categories[$category]) && $categories[$category]['enabled'];
 	}
 
+	/**
+	 * Determine whether a category identifier is supported.
+	 *
+	 * @param string $category Category identifier
+	 *
+	 * @return bool
+	 */
 	public function is_supported_category($category)
 	{
 		return in_array($category, ['necessary', 'analytics', 'marketing'], true);
 	}
 
+	/**
+	 * Allow extensions to register consent-aware integrations.
+	 *
+	 * @return void
+	 */
 	protected function collect_registrations()
 	{
 		$consent_manager = $this;
@@ -451,6 +559,14 @@ class consent_manager implements consent_manager_interface
 		extract($this->dispatcher->trigger_event('phpbb.consentmanager.collect_registrations', compact($vars)));
 	}
 
+	/**
+	 * Normalize integrations and encode them for config text storage.
+	 *
+	 * @param string|array $input Raw JSON or decoded integrations
+	 * @param array        $errors Validation errors
+	 *
+	 * @return string
+	 */
 	protected function normalize_integrations_json($input, array &$errors = [])
 	{
 		$integrations = $this->normalize_integrations($input, $errors);
@@ -469,6 +585,13 @@ class consent_manager implements consent_manager_interface
 		return $json;
 	}
 
+	/**
+	 * Return category ids that are always required.
+	 *
+	 * @param array $categories Category metadata
+	 *
+	 * @return array
+	 */
 	protected function get_required_category_ids(array $categories)
 	{
 		$required_categories = [];
@@ -484,6 +607,13 @@ class consent_manager implements consent_manager_interface
 		return array_values($required_categories);
 	}
 
+	/**
+	 * Return category ids that are currently enabled.
+	 *
+	 * @param array $categories Category metadata
+	 *
+	 * @return array
+	 */
 	protected function get_enabled_category_ids(array $categories)
 	{
 		$enabled_categories = [];
@@ -499,6 +629,13 @@ class consent_manager implements consent_manager_interface
 		return array_values($enabled_categories);
 	}
 
+	/**
+	 * Return category ids that are optional and enabled.
+	 *
+	 * @param array $categories Category metadata
+	 *
+	 * @return array
+	 */
 	protected function get_optional_category_ids(array $categories)
 	{
 		$optional_categories = [];
@@ -514,6 +651,17 @@ class consent_manager implements consent_manager_interface
 		return array_values($optional_categories);
 	}
 
+	/**
+	 * Normalize a script definition for frontend execution.
+	 *
+	 * @param string $registration_id Parent registration identifier
+	 * @param string $fallback_category Fallback category identifier
+	 * @param array  $definition Raw script definition
+	 * @param int    $script_index Script position within the registration
+	 * @param bool   $force_unique_id Whether to force a unique script id
+	 *
+	 * @return array
+	 */
 	protected function normalize_script($registration_id, $fallback_category, array $definition, $script_index = 0, $force_unique_id = false)
 	{
 		$category = isset($definition['category']) && trim((string) $definition['category']) !== '' ? trim((string) $definition['category']) : $fallback_category;
@@ -583,6 +731,13 @@ class consent_manager implements consent_manager_interface
 		];
 	}
 
+	/**
+	 * Normalize arbitrary script attributes to a safe subset.
+	 *
+	 * @param mixed $attributes Raw attribute map
+	 *
+	 * @return array
+	 */
 	protected function normalize_attributes($attributes)
 	{
 		if (!is_array($attributes))
@@ -611,6 +766,13 @@ class consent_manager implements consent_manager_interface
 		return $normalized;
 	}
 
+	/**
+	 * Determine whether a remote script source URL is allowed.
+	 *
+	 * @param string $src Script source URL
+	 *
+	 * @return bool
+	 */
 	protected function is_valid_script_source($src)
 	{
 		if ($src === '' || preg_match('/[<>"\']/', $src))
@@ -632,6 +794,13 @@ class consent_manager implements consent_manager_interface
 		return !isset($parts['scheme']) || in_array(strtolower($parts['scheme']), ['http', 'https'], true);
 	}
 
+	/**
+	 * Resolve a local asset path to a frontend URL.
+	 *
+	 * @param string $asset_path Local asset path
+	 *
+	 * @return string
+	 */
 	protected function resolve_local_asset_source($asset_path)
 	{
 		$template_asset = new asset($asset_path, $this->path_helper, $this->filesystem);
@@ -642,7 +811,7 @@ class consent_manager implements consent_manager_interface
 			return '';
 		}
 
-		if (substr($asset_path, 0, 2) !== './')
+		if (strpos($asset_path, './') !== 0)
 		{
 			$local_file = $this->twig_environment->get_phpbb_root_path() . $template_asset->get_path();
 			if (!file_exists($local_file))
@@ -667,6 +836,13 @@ class consent_manager implements consent_manager_interface
 		return html_entity_decode($template_asset->get_url(), ENT_QUOTES, 'UTF-8');
 	}
 
+	/**
+	 * Determine whether a local asset path is safe to resolve.
+	 *
+	 * @param string $asset_path Local asset path
+	 *
+	 * @return bool
+	 */
 	protected function is_valid_local_asset_path($asset_path)
 	{
 		if ($asset_path === '' || preg_match('/[<>"\']/', $asset_path))
@@ -680,9 +856,16 @@ class consent_manager implements consent_manager_interface
 			return false;
 		}
 
-		return isset($parts['path']) && $parts['path'] !== '' && substr($parts['path'], 0, 1) !== '/';
+		return isset($parts['path']) && $parts['path'] !== '' && strpos($parts['path'], '/') !== 0;
 	}
 
+	/**
+	 * Determine whether an identifier is valid for registrations and scripts.
+	 *
+	 * @param string $identifier Identifier to validate
+	 *
+	 * @return bool
+	 */
 	protected function is_valid_identifier($identifier)
 	{
 		return $identifier !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]*$/', $identifier);
