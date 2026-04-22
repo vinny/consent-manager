@@ -1,4 +1,4 @@
-# Consent Manager reference for extension developers
+# Consent Manager Developer Documentation
 
 Consent Manager allows phpBB extensions to declare any optional cookies, scripts, or third-party services they use and ensures those features are only activated after the user has given consent.
 
@@ -60,6 +60,12 @@ Only use `necessary` for code the board truly cannot work without. Most third-pa
 ## PHP integration
 
 ### Hook into the registration event
+
+PHP registration is the main integration point. This is how your extension tells Consent Manager:
+
+- what the integration is called
+- which category it belongs to
+- what description should be shown in the consent UI
 
 Consent Manager asks other extensions to register themselves by firing the phpBB event `phpbb.consentmanager.collect_registrations`. Your extension should listen for that event and then call the consent manager service from the event data.
 
@@ -269,6 +275,8 @@ $consent_manager->register('vendor.example.analytics.init', [
 Template placeholder example:
 
 ```twig
+<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %} src="https://cdn.example.com/analytics.js"></script>
+
 <script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %}>
 	window.exampleTracker && window.exampleTracker.page();
 </script>
