@@ -423,6 +423,12 @@ class consent_manager implements consent_manager_interface
 			return [];
 		}
 
+		if (array_keys($decoded) !== range(0, count($decoded) - 1))
+		{
+			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS');
+			return [];
+		}
+
 		$integrations = [];
 
 		foreach ($decoded as $index => $item)
