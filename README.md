@@ -2,6 +2,8 @@
 
 > This extension is under development and will become available on [phpBB.com](https://phpbb.com) when it's ready
 
+[![Build Status](https://github.com/phpbb-extensions/consentmanager/actions/workflows/tests.yml/badge.svg)](https://github.com/phpbb-extensions/consentmanager/actions)
+
 Consent Manager is a GDPR-ready privacy/cookie consent management solution built for phpBB forums.
 
 It adds a consent banner, settings modal, and category-based controls, allowing visitors to accept all, reject all, or choose specific tracking types. A footer link lets users revisit and update their preferences at any time.

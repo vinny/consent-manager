@@ -4,9 +4,11 @@ on:
     push:
         branches:
             - main
+            - develop
     pull_request:
         branches:
             - main
+            - develop
 
 jobs:
     call-tests:
@@ -14,7 +16,3 @@ jobs:
         uses: phpbb-extensions/test-framework/.github/workflows/tests.yml@3.3.x
         with:
             EXTNAME: phpbb/consentmanager
-            RUN_MYSQL_JOBS: 0
-            RUN_PGSQL_JOBS: 0
-            RUN_MSSQL_JOBS: 0
-            RUN_WINDOWS_JOBS: 0
