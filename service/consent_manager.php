@@ -580,24 +580,24 @@ class consent_manager implements consent_manager_interface
 			$json = trim($input);
 			if ($json === '')
 			{
-				return '[]';
+				return '';
 			}
 
 			$this->normalize_integrations($json, $errors);
-			return empty($errors) ? $json : '[]';
+			return empty($errors) ? $json : '';
 		}
 
 		$this->normalize_integrations($input, $errors);
 		if (!empty($errors))
 		{
-			return '[]';
+			return '';
 		}
 
 		$json = json_encode($input, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if ($json === false)
 		{
 			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS');
-			return '[]';
+			return '';
 		}
 
 		return $json;
@@ -613,7 +613,7 @@ class consent_manager implements consent_manager_interface
 		$json = trim((string) $this->config_text->get('consentmanager_integrations'));
 		if ($json === '')
 		{
-			return '[]';
+			return '';
 		}
 
 		$decoded = json_decode($json, true);

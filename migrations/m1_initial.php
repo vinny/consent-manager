@@ -59,7 +59,7 @@ class m1_initial extends \phpbb\db\migration\migration
 			['config.add', ['consentmanager_analytics_enabled', 1]],
 			['config.add', ['consentmanager_marketing_enabled', 1]],
 			['config.add', ['consentmanager_consent_version', 1]],
-			['config_text.add', ['consentmanager_integrations', '[]']],
+			['config_text.add', ['consentmanager_integrations', '']],
 			['module.add', ['acp', 'ACP_CAT_DOT_MODS', 'ACP_CONSENTMANAGER']],
 			['module.add', ['acp', 'ACP_CONSENTMANAGER', [
 				'module_basename'	=> '\phpbb\consentmanager\acp\consentmanager_module',
