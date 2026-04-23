@@ -15,95 +15,84 @@ class listener_test extends \phpbb_test_case
 	/** @var \phpbb\language\language */
 	protected $language;
 
-	/** @var \phpbb\user */
-	protected $user;
-
 	protected function setUp(): void
 	{
 		parent::setUp();
 
-		global $phpbb_root_path, $phpEx, $user;
+		global $user;
 
-		$lang_loader = new \phpbb\language\language_file_loader($phpbb_root_path, $phpEx);
-		$this->language = new \phpbb\language\language($lang_loader);
-		$this->language->add_lang('common', 'phpbb/consentmanager');
-		$this->language->add_lang('common');
+		$this->language = $this->createMock('\phpbb\language\language');
 
-		$this->user = new \phpbb\user($this->language, '\phpbb\datetime');
-		$this->user->data = array(
+		$user = new \phpbb\user($this->language, '\phpbb\datetime');
+		$user->data = [
 			'user_id' => ANONYMOUS,
 			'user_form_salt' => 'listener-salt',
-		);
-		$this->user->session_id = 'listener-session';
-		$user = $this->user;
+		];
 	}
 
 	public function test_get_subscribed_events()
 	{
-		self::assertSame(array(
+		self::assertSame([
 			'core.page_header_after' => 'inject_frontend',
-		), \phpbb\consentmanager\event\listener::getSubscribedEvents());
+		], \phpbb\consentmanager\event\listener::getSubscribedEvents());
 	}
 
-	public function test_inject_frontend_assigns_template_payload()
+	public function inject_frontend_assigns_template_payload_data()
 	{
+		return [
+			'front end'  => [false, false],
+			'in admin'   => [true, false],
+			'in install' => [false, true],
+		];
+	}
+
+	/**
+	 * @dataProvider inject_frontend_assigns_template_payload_data
+	 */
+	public function test_inject_frontend_assigns_template_payload($in_admin, $in_install)
+	{
+		if ($in_admin)
+		{
+			define('ADMIN_START', true);
+		}
+
+		if ($in_install)
+		{
+			define('IN_INSTALL', true);
+		}
+
+		$invoke = !($in_admin || $in_install);
+
 		$helper = $this->createMock('\phpbb\controller\helper');
-		$helper->expects(self::once())
+		$helper->expects($invoke ? self::once() : self::never())
 			->method('route')
 			->with('phpbb_consentmanager_log_controller')
 			->willReturn('/app.php/consent/log');
 
+		$this->language->expects($invoke ? self::once() : self::never())
+			->method('add_lang')
+			->with('common', 'phpbb/consentmanager');
+
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
+		$consent_manager->expects($invoke ? self::once() : self::never())
 			->method('get_frontend_template_data')
 			->with('/app.php/consent/log', generate_link_hash('phpbb.consentmanager.log'))
-			->willReturn(array(
+			->willReturn([
 				'S_CONSENTMANAGER_ENABLED' => true,
 				'CONSENTMANAGER_PAYLOAD' => '{"version":1}',
-			));
+			]);
 
 		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$template->expects($invoke ? self::once() : self::never())
 			->method('assign_vars')
-			->with(array(
+			->with([
 				'S_CONSENTMANAGER_ENABLED' => true,
 				'CONSENTMANAGER_PAYLOAD' => '{"version":1}',
-			));
+			]);
 
 		$listener = new \phpbb\consentmanager\event\listener(
 			$helper,
 			$this->language,
-			$consent_manager,
-			$template
-		);
-
-		$listener->inject_frontend();
-	}
-
-	public function test_inject_frontend_loads_extension_language_before_assigning_payload()
-	{
-		$helper = $this->createMock('\phpbb\controller\helper');
-		$helper->expects(self::once())
-			->method('route')
-			->willReturn('/app.php/consent/log');
-
-		$language = $this->createMock('\phpbb\language\language');
-		$language->expects(self::once())
-			->method('add_lang');
-
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
-			->method('get_frontend_template_data')
-			->willReturn(array());
-
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
-			->method('assign_vars')
-			->with(array());
-
-		$listener = new \phpbb\consentmanager\event\listener(
-			$helper,
-			$language,
 			$consent_manager,
 			$template
 		);

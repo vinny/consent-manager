@@ -16,3 +16,6 @@ jobs:
         uses: phpbb-extensions/test-framework/.github/workflows/tests.yml@3.3.x
         with:
             EXTNAME: phpbb/consentmanager
+            CODECOV: 1
+        secrets:
+            CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
