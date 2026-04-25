@@ -670,7 +670,7 @@
 
 	function initUi()
 	{
-		root = document.getElementById(payload.rootId);
+		root = document.getElementById('consent-manager-root');
 
 		if (!root)
 		{
