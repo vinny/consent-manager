@@ -19,11 +19,10 @@ Integration has two parts:
   - [Definition options](#definition-options)
   - [Category template flags](#category-template-flags)
 - [Script handling](#script-handling)
-  - [External scripts](#external-scripts)
+  - [External scripts remotely hosted](#external-scripts-remotely-hosted)
+  - [External scripts using INCLUDEJS](#external-scripts-using-includejs)
+  - [External scripts using SCRIPT tags](#external-scripts-using-script-tags)
   - [Inline scripts](#inline-scripts)
-  - [Delayed scripts with placeholders](#delayed-scripts-with-placeholders)
-  - [Delayed scripts with PHP registration](#delayed-scripts-with-php-registration)
-  - [What happens when consent changes](#what-happens-when-consent-changes)
 - [JavaScript API](#javascript-api)
   - [`consentManager.ready(callback)`](#consentmanagerreadycallback)
   - [`consentManager.hasConsent(category)`](#consentmanagerhasconsentcategory)
@@ -36,6 +35,7 @@ Integration has two parts:
   - [Analytics integration](#analytics-integration)
   - [Advertising script integration](#advertising-script-integration)
   - [Simple conditional execution](#simple-conditional-execution)
+- [What happens when consent changes](#what-happens-when-consent-changes)
 - [Integration checklist](#integration-checklist)
 
 ## Overview
@@ -53,7 +53,7 @@ If you want your extension to work with Consent Manager, these are the parts you
 - **PHP registration event:** `phpbb.consentmanager.collect_registrations`
 - **Registration service:** `register(string $id, array $definition): bool`
 - **Template flags:** `S_CONSENTMANAGER_ANALYTICS_ENABLED`, `S_CONSENTMANAGER_MARKETING_ENABLED`
-- **JavaScript API:** `window.consentManager`
+- **JavaScript API:** `window.consentManager` (optional but offers greater integrations)
 
 Only use `necessary` for code the board truly cannot work without. Most third-party cookies, analytics, pixels, and ad scripts belong in `analytics` or `marketing`.
 
@@ -210,10 +210,11 @@ Consent Manager always assigns these template flags on board pages:
 - `S_CONSENTMANAGER_MARKETING_ENABLED`
 
 Use the category flags when you need a fallback for boards where that category is turned off in the ACP or when Consent Manager is not installed.
+These allow your extension to continue working normally on boards where Consent Manager is disabled or the category is not available.
 
 ## Script handling
 
-### External scripts
+### External scripts remotely hosted
 
 For third-party or CDN-hosted files, prefer PHP registration with `src`:
 
@@ -230,6 +231,8 @@ $consent_manager->register('vendor.example.analytics', [
 ]);
 ```
 
+### External scripts using INCLUDEJS
+
 For extension-owned files, prefer `asset` so phpBB resolves the local asset path correctly:
 
 ```php
@@ -245,6 +248,8 @@ $consent_manager->register('vendor.example.analytics', [
 ]);
 ```
 
+> Tip: Use `wait_for_dom_ready` when the script expects the page HTML to exist before it runs. This is the closest equivalent to a footer-loaded `INCLUDEJS` file.
+
 If your extension already uses `INCLUDEJS`, keep it only as a fallback:
 
 ```twig
@@ -254,6 +259,21 @@ If your extension already uses `INCLUDEJS`, keep it only as a fallback:
 ```
 
 When analytics consent is enabled, Consent Manager injects the registered asset after consent. When the category is unavailable, your original `INCLUDEJS` path still works.
+
+### External scripts using SCRIPT tags
+
+If your extension is using HTML `<script>` tags directly, delay their execution:
+
+```twig
+<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %}
+	src="https://cdn.example.com/analytics.js"></script>
+```
+
+The `type="text/plain"` value keeps the browser from executing the script immediately. 
+Consent Manager upgrades the placeholder to a real `<script>` element after the matching category is allowed. 
+Additional script attributes like `async` and `defer` are preserved on placeholder-based external scripts.
+
+> Important: do **not** output `type="text/plain"` all the time unless your extension only works when Consent Manager is installed. Use the category flags so the same template still works without this extension.
 
 ### Inline scripts
 
@@ -275,55 +295,12 @@ $consent_manager->register('vendor.example.analytics.init', [
 Template placeholder example:
 
 ```twig
-<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %} src="https://cdn.example.com/analytics.js"></script>
-
 <script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %}>
 	window.exampleTracker && window.exampleTracker.page();
 </script>
 ```
 
 Use the placeholder approach when your extension already prints script tags from templates, and you do not want Consent Manager to add the code itself.
-
-### Deferred execution with placeholders
-
-Consent Manager treats tags like these as delayed placeholders:
-
-```html
-<script type="text/plain" data-consent-category="analytics">...</script>
-<script type="text/plain" data-consent-category="marketing" src="https://cdn.example.com/ad.js" async></script>
-```
-
-Behavior:
-
-- The `type="text/plain"` value keeps the browser from executing the script immediately.
-- Consent Manager upgrades the placeholder to a real `<script>` element after the matching category is allowed.
-- Consent Manager checks on initial page load **and** watches for matching tags added later.
-- `async` and `defer` are preserved on placeholder-based external scripts.
-
-Important: do **not** output `type="text/plain"` all the time unless your extension only works when Consent Manager is installed. Use the category flags so the same template still works without this extension.
-
-### Deferred execution with PHP registration
-
-For PHP-registered scripts, set `wait_for_dom_ready` when the script expects the page HTML to exist before it runs:
-
-```php
-[
-	'asset' => '@vendor_example/js/analytics.js',
-	'wait_for_dom_ready' => true,
-]
-```
-
-This is the closest equivalent to a footer-loaded `INCLUDEJS` file.
-
-### What happens when consent changes
-
-When consent is granted, Consent Manager executes any newly allowed scripts and then notifies listeners through the JS API.
-
-When a visitor removes consent from a category that already ran scripts, Consent Manager reloads the page. Keep that in mind when writing your code:
-
-- Make sure setup code can safely run once without causing problems if the page is loaded again later.
-- Assume a category can be turned off after it was previously allowed.
-- Keep behavior for each category separate where possible.
 
 ## JavaScript API
 
@@ -365,10 +342,13 @@ Use this when your own JavaScript should only run after consent.
 
 Registers a listener for consent changes. The callback receives the current state immediately and again whenever the visitor changes preferences.
 
+> Tip: This also provides an opportunity to delete any cookies or local storage your script may have created when a user revokes their consent (an important and often overlooked step in complying with cookie consent and privacy laws).
+
 ```js
 window.consentManager.ready(function (cm) {
 	cm.onChange(function (state) {
 		if (!state || !cm.hasConsent('analytics')) {
+			window.exampleTracker.deleteCookies();
 			return;
 		}
 
@@ -555,12 +535,22 @@ This is ideal for:
 - optional UI instrumentation
 - event tracking attached to buttons or forms
 
+## What happens when consent changes
+
+When consent is granted, Consent Manager executes any newly allowed scripts and then notifies listeners through the JS API.
+
+When a visitor removes consent from a category that already ran scripts, Consent Manager reloads the page. Keep that in mind when writing your code:
+
+- Make sure setup code can safely run once without causing problems if the page is loaded again later.
+- Assume a category can be turned off after it was previously allowed.
+- Keep behavior for each category separate where possible.
+
 ## Integration checklist
 
 1. Register every non-essential integration in `phpbb.consentmanager.collect_registrations`.
 2. Put the integration in the correct category.
 3. Make sure the actual script is delayed by PHP registration, a placeholder tag, or explicit JS gating.
 4. Use template flags when rendering fallback script tags.
-5. Write `onChange()` callbacks so they can run more than once without causing duplicate setup.
+5. Consider `onChange()` callbacks to start and remove script tracking, cookie, and storage functions.
 
 If you follow those rules, your extension will integrate cleanly with Consent Manager and avoid executing optional cookies, analytics, or advertising code before consent exists.
