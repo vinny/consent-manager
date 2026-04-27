@@ -89,7 +89,12 @@ class listener_test extends \phpbb_test_case
 					'LABEL'       => 'Necessary',
 					'DESCRIPTION' => 'Required cookies.',
 					'REQUIRED'    => true,
-					'services'    => [],
+					'services'    => [
+						0 => [
+							'LABEL'			=> 'Cookie baker',
+							'DESCRIPTION'	=> 'Delicious cookies',
+						]
+					],
 				],
 			]);
 
@@ -100,15 +105,26 @@ class listener_test extends \phpbb_test_case
 				'S_CONSENTMANAGER_ENABLED' => true,
 				'CONSENTMANAGER_PAYLOAD' => '{"version":1}',
 			]);
-		$template->expects($invoke ? self::once() : self::never())
+		$template->expects($invoke ? self::exactly(2) : self::never())
 			->method('assign_block_vars')
-			->with('CONSENTMANAGER_CATEGORIES', [
-				'ID'          => 'necessary',
-				'LABEL'       => 'Necessary',
-				'DESCRIPTION' => 'Required cookies.',
-				'REQUIRED'    => true,
-				'services'    => [],
-			]);
+			->withConsecutive(
+				['CONSENTMANAGER_CATEGORIES', [
+					'ID'          => 'necessary',
+					'LABEL'       => 'Necessary',
+					'DESCRIPTION' => 'Required cookies.',
+					'REQUIRED'    => true,
+					'services'    => [
+						0 => [
+							'LABEL'			=> 'Cookie baker',
+							'DESCRIPTION'	=> 'Delicious cookies',
+						]
+					],
+				]],
+				['CONSENTMANAGER_CATEGORIES.CONSENTMANAGER_SERVICES', [
+					'LABEL'			=> 'Cookie baker',
+					'DESCRIPTION'	=> 'Delicious cookies',
+				]]
+			);
 
 		$listener = new \phpbb\consentmanager\event\listener(
 			$helper,
