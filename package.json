@@ -1,0 +1,17 @@
+{
+	"name": "phpbb-consentmanager",
+	"private": true,
+	"scripts": {
+		"test": "jest --runInBand"
+	},
+	"jest": {
+		"testEnvironment": "node",
+		"testMatch": [
+			"<rootDir>/tests/javascript/**/*.test.js"
+		]
+	},
+	"devDependencies": {
+		"jest": "^29.7.0",
+		"jsdom": "^24.1.3"
+	}
+}
