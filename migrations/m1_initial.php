@@ -63,7 +63,7 @@ class m1_initial extends \phpbb\db\migration\migration
 			['module.add', ['acp', 'ACP_CAT_DOT_MODS', 'ACP_CONSENTMANAGER']],
 			['module.add', ['acp', 'ACP_CONSENTMANAGER', [
 				'module_basename'	=> '\phpbb\consentmanager\acp\consentmanager_module',
-				'modes'				=> ['settings'],
+				'modes'				=> ['settings', 'export'],
 			]]],
 		];
 	}
@@ -75,6 +75,7 @@ class m1_initial extends \phpbb\db\migration\migration
 			['config.remove', ['consentmanager_marketing_enabled']],
 			['config.remove', ['consentmanager_consent_version']],
 			['config_text.remove', ['consentmanager_integrations']],
+			['module.remove', ['acp', 'ACP_CONSENTMANAGER', 'ACP_CONSENTMANAGER_EXPORT']],
 			['module.remove', ['acp', 'ACP_CONSENTMANAGER', 'ACP_CONSENTMANAGER_SETTINGS']],
 			['module.remove', ['acp', 'ACP_CAT_DOT_MODS', 'ACP_CONSENTMANAGER']],
 		];

@@ -20,9 +20,21 @@ class acp_module_test extends \phpbb_test_case
 	/** @var \phpbb\module\module_manager */
 	protected $module_manager;
 
+	/** @var \phpbb\request\request|\PHPUnit\Framework\MockObject\MockObject */
+	protected $request;
+
+	/** @var \phpbb\template\template|\PHPUnit\Framework\MockObject\MockObject */
+	protected $template;
+
+	/** @var \phpbb\consentmanager\controller\acp_controller|\PHPUnit\Framework\MockObject\MockObject */
+	protected $acp_controller;
+
+	/** @var \Symfony\Component\DependencyInjection\ContainerInterface|\PHPUnit\Framework\MockObject\MockObject */
+	protected $container;
+
 	protected function setUp(): void
 	{
-		global $phpbb_dispatcher, $phpbb_extension_manager, $phpbb_root_path, $phpEx;
+		global $phpbb_dispatcher, $phpbb_extension_manager, $phpbb_root_path, $phpEx, $phpbb_container, $request, $template;
 
 		$this->extension_manager = new \phpbb_mock_extension_manager(
 			$phpbb_root_path,
@@ -37,7 +49,7 @@ class acp_module_test extends \phpbb_test_case
 
 		$this->module_manager = new \phpbb\module\module_manager(
 			new \phpbb\cache\driver\dummy(),
-			$this->getMockBuilder('\phpbb\db\driver\driver_interface')->getMock(),
+			$this->createMock('\phpbb\db\driver\driver_interface'),
 			$this->extension_manager,
 			MODULES_TABLE,
 			$phpbb_root_path,
@@ -45,6 +57,20 @@ class acp_module_test extends \phpbb_test_case
 		);
 
 		$phpbb_dispatcher = new \phpbb_mock_event_dispatcher();
+
+		if (!defined('IN_ADMIN'))
+		{
+			define('IN_ADMIN', true);
+		}
+
+		$this->request = $this->createMock('\phpbb\request\request');
+		$this->template = $this->createMock('\phpbb\template\template');
+		$this->acp_controller = $this->createMock('\phpbb\consentmanager\controller\acp_controller');
+		$this->container = $this->createMock('Symfony\Component\DependencyInjection\ContainerInterface');
+
+		$phpbb_container = $this->container;
+		$request = $this->request;
+		$template = $this->template;
 	}
 
 	public function test_module_info()
@@ -88,62 +114,14 @@ class acp_module_test extends \phpbb_test_case
 
 	public function test_main_module()
 	{
-		global $phpbb_container, $request, $template;
+		$this->expect_controller_method('handle');
 
-		if (!defined('IN_ADMIN'))
-		{
-			define('IN_ADMIN', true);
-		}
-
-		$request = $this->getMockBuilder('\phpbb\request\request')
-			->disableOriginalConstructor()
-			->getMock();
-		$template = $this->getMockBuilder('\phpbb\template\template')
-			->disableOriginalConstructor()
-			->getMock();
-		$phpbb_container = $this->getMockBuilder('Symfony\Component\DependencyInjection\ContainerInterface')
-			->disableOriginalConstructor()
-			->getMock();
-		$acp_controller = $this->getMockBuilder('\phpbb\consentmanager\controller\acp_controller')
-			->disableOriginalConstructor()
-			->getMock();
-
-		$phpbb_container
-			->expects(self::once())
-			->method('get')
-			->with('phpbb.consentmanager.controller.acp')
-			->willReturn($acp_controller);
-
-		$acp_controller
-			->expects(self::once())
-			->method('handle');
-
-		$p_master = new \p_master();
-		$p_master->module_ary[0]['is_duplicate'] = 0;
-		$p_master->module_ary[0]['url_extra'] = '';
-		$p_master->load('acp', '\phpbb\consentmanager\acp\consentmanager_module');
+		$this->create_p_master()->load('acp', '\phpbb\consentmanager\acp\consentmanager_module');
 	}
 
 	public function test_main_module_export_mode()
 	{
-		global $phpbb_container;
-
-		$phpbb_container = $this->getMockBuilder('Symfony\Component\DependencyInjection\ContainerInterface')
-			->disableOriginalConstructor()
-			->getMock();
-		$acp_controller = $this->getMockBuilder('\phpbb\consentmanager\controller\acp_controller')
-			->disableOriginalConstructor()
-			->getMock();
-
-		$phpbb_container
-			->expects(self::once())
-			->method('get')
-			->with('phpbb.consentmanager.controller.acp')
-			->willReturn($acp_controller);
-
-		$acp_controller
-			->expects(self::once())
-			->method('handle_export');
+		$this->expect_controller_method('handle_export');
 
 		$module = new \phpbb\consentmanager\acp\consentmanager_module();
 		$module->u_action = 'adm.php?i=test&mode=export';
@@ -151,5 +129,27 @@ class acp_module_test extends \phpbb_test_case
 
 		self::assertSame('consentmanager_acp_export', $module->tpl_name);
 		self::assertSame('ACP_CONSENTMANAGER_EXPORT', $module->page_title);
+	}
+
+	protected function expect_controller_method($method)
+	{
+		$this->container
+			->expects(self::once())
+			->method('get')
+			->with('phpbb.consentmanager.controller.acp')
+			->willReturn($this->acp_controller);
+
+		$this->acp_controller
+			->expects(self::once())
+			->method($method);
+	}
+
+	protected function create_p_master()
+	{
+		$p_master = new \p_master();
+		$p_master->module_ary[0]['is_duplicate'] = 0;
+		$p_master->module_ary[0]['url_extra'] = '';
+
+		return $p_master;
 	}
 }

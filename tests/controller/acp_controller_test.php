@@ -23,6 +23,15 @@ class acp_controller_test extends \phpbb_test_case
 	/** @var \phpbb\user */
 	protected $user;
 
+	/** @var \phpbb\template\template|\PHPUnit\Framework\MockObject\MockObject */
+	protected $template;
+
+	/** @var \phpbb\consentmanager\service\consent_manager_interface|\PHPUnit\Framework\MockObject\MockObject */
+	protected $consent_manager;
+
+	/** @var \phpbb\consentmanager\service\acp_manager|\PHPUnit\Framework\MockObject\MockObject */
+	protected $acp_manager;
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -32,76 +41,85 @@ class acp_controller_test extends \phpbb_test_case
 		$lang_loader = new \phpbb\language\language_file_loader($phpbb_root_path, $phpEx);
 		$lang_loader->set_extension_manager(new \phpbb_mock_extension_manager(
 			$phpbb_root_path,
-			array(
-				'phpbb/consentmanager' => array(
+			[
+				'phpbb/consentmanager' => [
 					'ext_name'   => 'phpbb/consentmanager',
 					'ext_active' => '1',
 					'ext_path'   => 'ext/phpbb/consentmanager/',
-				),
-			)
+				],
+			]
 		));
 		$this->language = new \phpbb\language\language($lang_loader);
 		$this->language->add_lang('common');
 		$this->language->add_lang('acp_consentmanager', 'phpbb/consentmanager');
 
 		$this->user = new \phpbb\user($this->language, '\phpbb\datetime');
-		$this->user->data = array(
+		$this->user->data = [
 			'user_id' => 2,
 			'user_form_salt' => 'form-salt',
-		);
+		];
 		$this->user->session_id = 'session-id';
 		$this->user->lang = $this->language->get_lang_array();
+
+		$this->template        = $this->createMock('\phpbb\template\template');
+		$this->consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
+		$this->acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');
+	}
+
+	protected function create_controller($request, $u_action = 'adm.php?i=test')
+	{
+		$controller = new \phpbb\consentmanager\controller\acp_controller(
+			$this->language,
+			$this->consent_manager,
+			$this->acp_manager,
+			$request,
+			$this->template
+		);
+		$controller->set_page_url($u_action);
+		return $controller;
 	}
 
 	public function test_handle_assigns_existing_template_data()
 	{
-		$request = $this->create_request_mock();
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->consent_manager->expects(self::once())
+			->method('get_acp_template_data')
+			->willReturn([
+				'S_CONSENTMANAGER_ANALYTICS' => true,
+				'CONSENTMANAGER_VERSION' => 1,
+			]);
+		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(array(
+			->with([
 				'S_CONSENTMANAGER_ANALYTICS' => true,
 				'CONSENTMANAGER_VERSION' => 1,
 				'S_ERROR' => false,
 				'ERROR_MSG' => '',
 				'U_ACTION' => 'adm.php?i=test',
-			));
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
-			->method('get_acp_template_data')
-			->willReturn(array(
-				'S_CONSENTMANAGER_ANALYTICS' => true,
-				'CONSENTMANAGER_VERSION' => 1,
-			));
+			]);
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$this->create_controller($this->create_request_mock())->handle();
 	}
 
 	public function test_handle_submit_validation_errors_reassigns_form_data()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(
-			array(
-				'submit' => 1,
-				'consentmanager_analytics_enabled' => 1,
-				'consentmanager_marketing_enabled' => 0,
-			),
-			array(
-				'consentmanager_integrations' => "  invalid json  \n",
-			)
-		);
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->consent_manager->expects(self::once())
+			->method('save_acp_settings')
+			->willReturnCallback(function (array $settings, array &$errors) {
+				self::assertSame([
+					'analytics_enabled' => 1,
+					'marketing_enabled' => 0,
+					'integrations' => 'invalid json',
+				], $settings);
+				$errors = ['Invalid integrations'];
+				return false;
+			});
+		$this->consent_manager->expects(self::once())
+			->method('get_acp_template_data')
+			->willReturn(['CONSENTMANAGER_VERSION' => 3]);
+		$this->acp_manager->expects(self::never())->method('log_admin_settings_updated');
+		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with(self::callback(function ($vars) {
 				return $vars['S_ERROR']
@@ -109,140 +127,74 @@ class acp_controller_test extends \phpbb_test_case
 					&& $vars['U_ACTION'] === 'adm.php?i=test'
 					&& isset($vars['CONSENTMANAGER_VERSION']);
 			}));
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
-			->method('save_acp_settings')
-			->willReturnCallback(function (array $settings, array &$errors) {
-				self::assertSame(array(
-					'analytics_enabled' => 1,
-					'marketing_enabled' => 0,
-					'integrations' => 'invalid json',
-				), $settings);
 
-				$errors = array('Invalid integrations');
-				return false;
-			});
-		$consent_manager->expects(self::once())
-			->method('get_acp_template_data')
-			->willReturn(array(
-				'CONSENTMANAGER_VERSION' => 3,
-			));
-
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->expects(self::never())
-			->method('log_admin_settings_updated');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
+		$request = $this->create_request_mock(
+			[
+				'submit' => 1,
+				'consentmanager_analytics_enabled' => 1,
+				'consentmanager_marketing_enabled' => 0
+			],
+			['consentmanager_integrations' => "  invalid json  \n"]
 		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$this->create_controller($request)->handle();
 	}
 
 	public function test_handle_submit_success_logs_and_triggers_success_notice()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(
-			array(
-				'submit' => 1,
-				'consentmanager_analytics_enabled' => 0,
-				'consentmanager_marketing_enabled' => 1,
-			),
-			array(
-				'consentmanager_integrations' => '[]',
-			)
-		);
-		$template = $this->createMock('\phpbb\template\template');
+		$this->consent_manager->expects(self::once())->method('save_acp_settings')->willReturn(true);
+		$this->acp_manager->expects(self::once())->method('log_admin_settings_updated');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('CONFIG_UPDATED'));
 
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
-			->method('save_acp_settings')
-			->willReturn(true);
-
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->expects(self::once())
-			->method('log_admin_settings_updated');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
+		$request = $this->create_request_mock(
+			[
+				'submit' => 1,
+				'consentmanager_analytics_enabled' => 0,
+				'consentmanager_marketing_enabled' => 1
+			],
+			['consentmanager_integrations' => '[]']
 		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$this->create_controller($request)->handle();
 	}
 
 	public function test_handle_reset_consent_logs_and_triggers_success_notice()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(array(
-			'reset_consent' => 1,
-		));
-		$template = $this->createMock('\phpbb\template\template');
+		$this->consent_manager->expects(self::once())->method('reset_consent_version');
+		$this->acp_manager->expects(self::once())->method('log_admin_reprompt');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS'));
 
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::once())
-			->method('reset_consent_version');
-
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->expects(self::once())
-			->method('log_admin_reprompt');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
 	}
 
 	public function test_handle_rejects_invalid_form_key()
 	{
 		self::$valid_form = false;
 
-		$request = $this->create_request_mock(array(
-			'submit' => 1,
-		));
-		$template = $this->createMock('\phpbb\template\template');
+		$this->consent_manager->expects(self::never())->method('save_acp_settings');
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::never())
-			->method('save_acp_settings');
+		$this->create_controller($this->create_request_mock(['submit' => 1]))->handle();
+	}
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
+	public function test_handle_reset_consent_rejects_invalid_form_key()
+	{
+		self::$valid_form = false;
 
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$this->consent_manager->expects(self::never())->method('reset_consent_version');
+		$this->acp_manager->expects(self::never())->method('log_admin_reprompt');
+		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
+
+		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
 	}
 
 	public function test_handle_export_shows_empty_form()
 	{
-		$request = $this->create_request_mock();
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(array(
+			->with([
 				'S_ERROR'            => false,
 				'ERROR_MSG'          => '',
 				'EXPORT_DATE_FROM'   => '',
@@ -250,222 +202,129 @@ class acp_controller_test extends \phpbb_test_case
 				'EXPORT_USER_ID'     => 0,
 				'EXPORT_CONSENT_VER' => 0,
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
-			));
+			]);
 
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
+		$this->create_controller($this->create_request_mock(), 'adm.php?i=test&mode=export')->handle_export();
 	}
 
 	public function test_handle_export_rejects_invalid_form_key()
 	{
 		self::$valid_form = false;
 
-		$request  = $this->create_request_mock(array('download_csv' => 1));
-		$template = $this->createMock('\phpbb\template\template');
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
+		$this->create_controller($this->create_request_mock(['download_csv' => 1]), 'adm.php?i=test&mode=export')->handle_export();
 	}
 
 	public function test_handle_export_invalid_date_from_shows_error()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(array(
-			'download_csv'     => 1,
-			'export_date_from' => 'not-a-date',
-			'export_date_to'   => '',
-			'export_user_id'   => 0,
-			'export_consent_version' => 0,
-		));
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->acp_manager->method('parse_date_filter')->willReturn(false);
+		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
+		$this->acp_manager->expects(self::never())->method('log_admin_export');
+		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true
-					&& strpos($vars['ERROR_MSG'], 'Date from') !== false;
+				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date from') !== false;
 			}));
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->method('parse_date_filter')->willReturn(false);
-		$acp_manager->expects(self::never())->method('stream_logs_csv');
-		$acp_manager->expects(self::never())->method('log_admin_export');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
+		$request = $this->create_request_mock([
+			'download_csv' => 1,
+			'export_date_from' => 'not-a-date',
+			'export_date_to' => '',
+			'export_user_id' => 0,
+			'export_consent_version' => 0,
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
 	}
 
 	public function test_handle_export_invalid_date_to_shows_error()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(array(
-			'download_csv'     => 1,
-			'export_date_from' => '',
-			'export_date_to'   => '2024-13-01',
-			'export_user_id'   => 0,
-			'export_consent_version' => 0,
-		));
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->acp_manager->method('parse_date_filter')->willReturn(false);
+		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
+		$this->acp_manager->expects(self::never())->method('log_admin_export');
+		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true
-					&& strpos($vars['ERROR_MSG'], 'Date to') !== false;
+				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date to') !== false;
 			}));
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		// First call (date_from, empty string) returns false; second call (date_to, invalid) returns false
-		$acp_manager->method('parse_date_filter')->willReturn(false);
-		$acp_manager->expects(self::never())->method('stream_logs_csv');
-		$acp_manager->expects(self::never())->method('log_admin_export');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
+		$request = $this->create_request_mock([
+			'download_csv' => 1,
+			'export_date_from' => '',
+			'export_date_to' => '2024-13-01',
+			'export_user_id' => 0,
+			'export_consent_version' => 0,
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
 	}
 
 	public function test_handle_export_reversed_date_range_shows_error()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(array(
-			'download_csv'     => 1,
-			'export_date_from' => '2024-12-31',
-			'export_date_to'   => '2024-01-01',
-			'export_user_id'   => 0,
-			'export_consent_version' => 0,
-		));
-		$template = $this->createMock('\phpbb\template\template');
-		$template->expects(self::once())
+		$this->acp_manager->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1735603200, 1704067200);
+		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
+		$this->acp_manager->expects(self::never())->method('log_admin_export');
+		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true
-					&& strpos($vars['ERROR_MSG'], '"Date from"') !== false;
+				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], '"Date from"') !== false;
 			}));
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		// date_from=2024-12-31 → large timestamp, date_to=2024-01-01 → small timestamp → range error
-		$acp_manager->method('parse_date_filter')
-			->willReturnOnConsecutiveCalls(1735603200, 1704067200);
-		$acp_manager->expects(self::never())->method('stream_logs_csv');
-		$acp_manager->expects(self::never())->method('log_admin_export');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
-	}
-
-	public function test_handle_reset_consent_rejects_invalid_form_key()
-	{
-		self::$valid_form = false;
-
-		$request = $this->create_request_mock(array(
-			'reset_consent' => 1,
-		));
-		$template = $this->createMock('\phpbb\template\template');
-		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
-
-		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
-		$consent_manager->expects(self::never())
-			->method('reset_consent_version');
-
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->expects(self::never())
-			->method('log_admin_reprompt');
-
-		$controller = new \phpbb\consentmanager\controller\acp_controller(
-			$this->language,
-			$consent_manager,
-			$acp_manager,
-			$request,
-			$template
-		);
-		$controller->set_page_url('adm.php?i=test');
-		$controller->handle();
+		$request = $this->create_request_mock([
+			'download_csv' => 1,
+			'export_date_from' => '2024-12-31',
+			'export_date_to' => '2024-01-01',
+			'export_user_id' => 0,
+			'export_consent_version' => 0,
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
 	}
 
 	public function test_handle_export_success_logs_and_passes_filters_to_download()
 	{
 		self::$valid_form = true;
 
-		$request = $this->create_request_mock(array(
-			'download_csv'           => 1,
-			'export_date_from'       => '2024-01-01',
-			'export_date_to'         => '2024-12-31',
-			'export_user_id'         => 42,
-			'export_consent_version' => 2,
-		));
-		$template = $this->createMock('\phpbb\template\template');
+		$this->acp_manager->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
+		$this->acp_manager->expects(self::once())->method('log_admin_export');
 
-		$acp_manager = $this->createMock('\phpbb\consentmanager\service\acp_manager');
-		$acp_manager->method('parse_date_filter')
-			->willReturnOnConsecutiveCalls(1704067200, 1735689599); // 2024-01-01, 2024-12-31 23:59:59
-		$acp_manager->expects(self::once())->method('log_admin_export');
-		$acp_manager->expects(self::never())->method('stream_logs_csv'); // called inside send_csv_download, which is intercepted
+		$request = $this->create_request_mock([
+			'download_csv' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		]);
 
 		$controller = new \phpbb\consentmanager\tests\controller\testable_acp_controller(
 			$this->language,
-			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
-			$acp_manager,
+			$this->consent_manager,
+			$this->acp_manager,
 			$request,
-			$template
+			$this->template
 		);
 		$controller->set_page_url('adm.php?i=test&mode=export');
 		$controller->handle_export();
 
-		self::assertSame(array(
-			'date_from'      => 1704067200,
-			'date_to'        => 1735689599,
-			'user_id'        => 42,
+		self::assertSame([
+			'date_from'       => 1704067200,
+			'date_to'         => 1735689599,
+			'user_id'         => 42,
 			'consent_version' => 2,
-		), $controller->captured_filters);
+		], $controller->captured_filters);
 	}
 
-	protected function create_request_mock(array $values = array(), array $raw_values = array())
+	protected function create_request_mock(array $values = [], array $raw_values = [])
 	{
 		$request = $this->getMockBuilder('\phpbb\request\request')
 			->disableOriginalConstructor()
-			->setMethods(array('is_set_post', 'variable', 'raw_variable'))
+			->setMethods(['is_set_post', 'variable', 'raw_variable'])
 			->getMock();
 
 		$request->method('is_set_post')
