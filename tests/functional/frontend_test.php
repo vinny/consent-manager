@@ -62,8 +62,42 @@ class frontend_test extends \phpbb_functional_test_case
 		), json_decode(self::$client->getResponse()->getContent(), true));
 	}
 
-	public function test_log_endpoint_accepts_valid_submission_and_persists_it()
+	public function test_log_endpoint_accepts_valid_anonymous_submission_without_persisting_it()
 	{
+		$payload = $this->extract_payload(self::request('GET', 'index.php') ? self::get_content() : '');
+
+		self::$client->request(
+			'POST',
+			$payload['logEndpoint'],
+			array(),
+			array(),
+			array('CONTENT_TYPE' => 'application/json'),
+			json_encode(array(
+				'hash' => $payload['logHash'],
+				'version' => $payload['version'],
+				'categories' => array('analytics', 'analytics', 'unknown'),
+			))
+		);
+
+		$response = json_decode(self::$client->getResponse()->getContent(), true);
+		$this->assertSame(200, self::$client->getResponse()->getStatus());
+		$this->assertSame(array('necessary', 'analytics'), $response['categories']);
+		$this->assertSame($payload['version'], $response['version']);
+
+		$sql = 'SELECT COUNT(*) AS log_count
+			FROM phpbb_consentmanager_logs';
+		$result = $this->db->sql_query($sql);
+		$row = $this->db->sql_fetchrow($result);
+		$this->db->sql_freeresult($result);
+
+		$this->assertSame(0, (int) $row['log_count']);
+	}
+
+	public function test_log_endpoint_persists_valid_authenticated_submission()
+	{
+		$this->create_user('consentuser');
+		$this->login('consentuser');
+
 		$payload = $this->extract_payload(self::request('GET', 'index.php') ? self::get_content() : '');
 
 		self::$client->request(
