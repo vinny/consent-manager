@@ -79,6 +79,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertFalse($manager->is_supported_category('foobar'));
 		self::assertTrue($manager->is_category_enabled('analytics'));
 		self::assertFalse($manager->is_category_enabled('marketing'));
+		self::assertTrue($manager->has_optional_categories());
 
 		$categories = $manager->get_categories();
 		self::assertSame('necessary', $categories['necessary']['id']);
@@ -287,6 +288,30 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertArrayNotHasKey('strings', $payload);
 		self::assertArrayNotHasKey('banner', $payload);
 		self::assertArrayNotHasKey('services', $payload);
+	}
+
+	public function test_get_frontend_template_data_disables_frontend_without_optional_categories()
+	{
+		$manager = $this->get_manager(array(
+			'consentmanager_analytics_enabled' => 0,
+			'consentmanager_marketing_enabled' => 0,
+		));
+		$data = $manager->get_frontend_template_data('/app.php/consent/log', 'abc123');
+
+		self::assertFalse($data['S_CONSENTMANAGER_ENABLED']);
+		self::assertFalse($data['S_CONSENTMANAGER_ANALYTICS_ENABLED']);
+		self::assertFalse($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
+		self::assertSame('', $data['CONSENTMANAGER_PAYLOAD']);
+	}
+
+	public function test_has_frontend_ui_returns_false_without_optional_categories()
+	{
+		$manager = $this->get_manager(array(
+			'consentmanager_analytics_enabled' => 0,
+			'consentmanager_marketing_enabled' => 0,
+		));
+
+		self::assertFalse($manager->has_optional_categories());
 	}
 
 	public function test_get_frontend_category_data_groups_services_by_enabled_category()

@@ -70,6 +70,11 @@ class listener implements EventSubscriberInterface
 			return;
 		}
 
+		if (!$this->consent_manager->has_optional_categories())
+		{
+			return;
+		}
+
 		$this->language->add_lang('common', 'phpbb/consentmanager');
 		$this->template->assign_vars($this->consent_manager->get_frontend_template_data(
 			$this->helper->route('phpbb_consentmanager_log_controller'),

@@ -48,6 +48,7 @@ class listener_test extends \phpbb_test_case
 
 	/**
 	 * @dataProvider inject_frontend_assigns_template_payload_data
+	 * @runInSeparateProcess
 	 */
 	public function test_inject_frontend_assigns_template_payload($in_admin, $in_install)
 	{
@@ -74,6 +75,9 @@ class listener_test extends \phpbb_test_case
 			->with('common', 'phpbb/consentmanager');
 
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
+		$consent_manager->expects($invoke ? self::once() : self::never())
+			->method('has_optional_categories')
+			->willReturn(true);
 		$consent_manager->expects($invoke ? self::once() : self::never())
 			->method('get_frontend_template_data')
 			->with('/app.php/consent/log', generate_link_hash('phpbb.consentmanager.log'))
@@ -125,6 +129,40 @@ class listener_test extends \phpbb_test_case
 					'DESCRIPTION'	=> 'Delicious cookies',
 				]]
 			);
+
+		$listener = new \phpbb\consentmanager\event\listener(
+			$helper,
+			$this->language,
+			$consent_manager,
+			$template
+		);
+
+		$listener->inject_frontend();
+	}
+
+	public function test_inject_frontend_skips_category_blocks_when_frontend_disabled()
+	{
+		$helper = $this->createMock('\phpbb\controller\helper');
+		$helper->expects(self::never())
+			->method('route');
+
+		$this->language->expects(self::never())
+			->method('add_lang');
+
+		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
+		$consent_manager->expects(self::once())
+			->method('has_optional_categories')
+			->willReturn(false);
+		$consent_manager->expects(self::never())
+			->method('get_frontend_template_data');
+		$consent_manager->expects(self::never())
+			->method('get_frontend_category_data');
+
+		$template = $this->createMock('\phpbb\template\template');
+		$template->expects(self::never())
+			->method('assign_vars');
+		$template->expects(self::never())
+			->method('assign_block_vars');
 
 		$listener = new \phpbb\consentmanager\event\listener(
 			$helper,

@@ -144,4 +144,11 @@ interface consent_manager_interface
 	 * @return bool
 	 */
 	public function is_category_enabled($category);
+
+	/**
+	 * Determine whether any optional consent categories are enabled.
+	 *
+	 * @return bool
+	 */
+	public function has_optional_categories();
 }

@@ -149,14 +149,15 @@ class consent_manager implements consent_manager_interface
 	 */
 	public function get_frontend_template_data($log_url, $log_hash)
 	{
-		$payload = $this->build_frontend_payload($log_url, $log_hash);
 		$categories = $this->get_categories();
+		$has_optional_categories = $this->has_optional_categories();
+		$payload = $has_optional_categories ? $this->build_frontend_payload($log_url, $log_hash) : '';
 
 		return [
-			'S_CONSENTMANAGER_ENABLED'				=> true,
+			'S_CONSENTMANAGER_ENABLED'				=> $has_optional_categories,
 			'S_CONSENTMANAGER_ANALYTICS_ENABLED'	=> !empty($categories['analytics']['enabled']),
 			'S_CONSENTMANAGER_MARKETING_ENABLED'	=> !empty($categories['marketing']['enabled']),
-			'CONSENTMANAGER_PAYLOAD'				=> json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT),
+			'CONSENTMANAGER_PAYLOAD'				=> $has_optional_categories ? json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) : '',
 		];
 	}
 
@@ -572,6 +573,16 @@ class consent_manager implements consent_manager_interface
 	{
 		$categories = $this->get_categories();
 		return isset($categories[$category]) && $categories[$category]['enabled'];
+	}
+
+	/**
+	 * Determine whether any optional consent categories are enabled.
+	 *
+	 * @return bool
+	 */
+	public function has_optional_categories()
+	{
+		return !empty($this->get_optional_category_ids($this->get_categories()));
 	}
 
 	/**
