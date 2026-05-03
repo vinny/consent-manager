@@ -153,12 +153,20 @@ class consent_manager implements consent_manager_interface
 		$has_optional_categories = $this->has_optional_categories();
 		$payload = $has_optional_categories ? $this->build_frontend_payload($log_url, $log_hash) : '';
 
-		return [
+		$vars = [
 			'S_CONSENTMANAGER_ENABLED'				=> $has_optional_categories,
 			'S_CONSENTMANAGER_ANALYTICS_ENABLED'	=> !empty($categories['analytics']['enabled']),
 			'S_CONSENTMANAGER_MARKETING_ENABLED'	=> !empty($categories['marketing']['enabled']),
 			'CONSENTMANAGER_PAYLOAD'				=> $has_optional_categories ? json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) : '',
 		];
+
+		// Override phpBB's cookie consent banner when Consent Manager is enabled
+		if ($has_optional_categories)
+		{
+			$vars['S_COOKIE_NOTICE'] = false;
+		}
+
+		return $vars;
 	}
 
 	/**

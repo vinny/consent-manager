@@ -283,6 +283,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertTrue($data['S_CONSENTMANAGER_ENABLED']);
 		self::assertTrue($data['S_CONSENTMANAGER_ANALYTICS_ENABLED']);
 		self::assertTrue($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
+		self::assertFalse($data['S_COOKIE_NOTICE']);
 		self::assertSame('/app.php/consent/log?x=<test>', $payload['logEndpoint']);
 		self::assertSame('abc123', $payload['logHash']);
 		self::assertArrayNotHasKey('strings', $payload);
@@ -302,6 +303,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertFalse($data['S_CONSENTMANAGER_ANALYTICS_ENABLED']);
 		self::assertFalse($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
 		self::assertSame('', $data['CONSENTMANAGER_PAYLOAD']);
+		self::assertArrayNotHasKey('S_COOKIE_NOTICE', $data);
 	}
 
 	public function test_has_frontend_ui_returns_false_without_optional_categories()
