@@ -2,16 +2,15 @@
 	{% INCLUDECSS '@phpbb_consentmanager/consentmanager.css' %}
 	<script>
 	(function (window, document) {
-		var payload = {{ CONSENTMANAGER_PAYLOAD|raw }};
-		var requiredCategories = payload.requiredCategories || [];
-		var enabledCategories = payload.enabledCategories || [];
-		var index;
+		const payload = {{ CONSENTMANAGER_PAYLOAD|raw }};
+		const requiredCategories = payload.requiredCategories || [];
+		const enabledCategories = payload.enabledCategories || [];
 
 		window.phpbbConsentManagerPayload = payload;
 
 		if ((!requiredCategories.length || !enabledCategories.length) && payload.categories)
 		{
-			for (index = 0; index < payload.categories.length; index++)
+			for (let index = 0; index < payload.categories.length; index++)
 			{
 				if (payload.categories[index].enabled)
 				{
@@ -27,10 +26,9 @@
 
 		function parseCookie(name)
 		{
-			var parts = document.cookie ? document.cookie.split('; ') : [];
-			var i;
+			const parts = document.cookie ? document.cookie.split('; ') : [];
 
-			for (i = 0; i < parts.length; i++)
+			for (let i = 0; i < parts.length; i++)
 			{
 				if (parts[i].indexOf(name + '=') === 0)
 				{
@@ -43,8 +41,8 @@
 
 		function loadState()
 		{
-			var raw = '';
-			var state = null;
+			let raw = '';
+			let state = null;
 
 			try
 			{
@@ -90,7 +88,7 @@
 			return items.indexOf(value) !== -1;
 		}
 
-		var stub = window.consentManager || {};
+		const stub = window.consentManager || {};
 		stub._queue = stub._queue || [];
 		stub.registerScript = stub.registerScript || function (id, options) {
 			stub._queue.push(['registerScript', id, options]);
@@ -105,7 +103,7 @@
 			stub._queue.push(['ready', callback]);
 		};
 		stub.hasConsent = stub.hasConsent || function (category) {
-			var state = loadState();
+			const state = loadState();
 			return hasValue(requiredCategories, category) || !!(state && hasValue(enabledCategories, category) && state.categories.indexOf(category) !== -1);
 		};
 		window.consentManager = stub;

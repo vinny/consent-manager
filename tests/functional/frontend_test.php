@@ -153,7 +153,7 @@ class frontend_test extends \phpbb_functional_test_case
 
 	protected function extract_payload($content)
 	{
-		preg_match('/var payload = (.*?);\s*var requiredCategories/s', $content, $matches);
+		preg_match('/(?:var|let|const) payload = (.*?);\s*(?:var|let|const) requiredCategories/s', $content, $matches);
 		$this->assertNotEmpty($matches[1]);
 
 		return json_decode($matches[1], true);

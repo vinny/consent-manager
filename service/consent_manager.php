@@ -339,7 +339,7 @@ class consent_manager implements consent_manager_interface
 			'requiredCategories' => $this->get_required_category_ids($categories),
 			'enabledCategories' => $this->get_enabled_category_ids($categories),
 			'optionalCategories' => $this->get_optional_category_ids($categories),
-			'categories' => array_values($categories),
+			'categories' => $this->get_frontend_payload_categories($categories),
 			'scripts' => array_values($scripts),
 			'logEndpoint' => $log_url,
 			'logHash' => $log_hash,
@@ -761,6 +761,29 @@ class consent_manager implements consent_manager_interface
 		}
 
 		return array_values($optional_categories);
+	}
+
+	/**
+	 * Return the category metadata required by the frontend payload.
+	 *
+	 * @param array $categories Category metadata
+	 *
+	 * @return array
+	 */
+	protected function get_frontend_payload_categories(array $categories)
+	{
+		$payload_categories = [];
+
+		foreach ($categories as $category)
+		{
+			$payload_categories[] = [
+				'id' => $category['id'],
+				'required' => !empty($category['required']),
+				'enabled' => !empty($category['enabled']),
+			];
+		}
+
+		return $payload_categories;
 	}
 
 	/**
