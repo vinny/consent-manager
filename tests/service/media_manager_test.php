@@ -92,7 +92,8 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('data-consent-media-container="1"', $template);
 		self::assertStringContainsString('data-consent-src="https://video.example.com/embed/123"', $template);
 		self::assertStringContainsString('data-consent-onload="boot()"', $template);
-		self::assertStringContainsString('class="consent-manager-media-placeholder-copy"', $template);
+		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-media-frame="1"', $template);
 		self::assertStringNotContainsString('$L_CONSENTMANAGER_MEDIA_PLACEHOLDER', $template);
 		self::assertStringNotContainsString('data-consent-open-settings="1"', $template);
 		self::assertStringContainsString('<iframe src="https://video.example.com/embed/123"', $template);
@@ -114,7 +115,8 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('$S_CONSENTMANAGER_MEDIA_ALLOWED', $template);
 		self::assertStringContainsString('name="data-consent-media-container"', $template);
 		self::assertStringContainsString('name="data-consent-src"', $template);
-		self::assertStringContainsString('class="consent-manager-media-placeholder-copy"', $template);
+		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-media-frame="1"', $template);
 		self::assertStringNotContainsString('$L_CONSENTMANAGER_MEDIA_PLACEHOLDER', $template);
 		self::assertStringNotContainsString('data-consent-open-settings="1"', $template);
 		self::assertStringContainsString('name="src"', $template);
@@ -136,8 +138,10 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('$S_CONSENTMANAGER_MEDIA_ALLOWED', $template);
 		self::assertStringContainsString('data-consent-media-container="1"', $template);
 		self::assertStringContainsString('data-consent-src="https://video.example.com/embed/123"', $template);
-		self::assertStringContainsString('class="consent-manager-media-placeholder-copy"', $template);
-		self::assertStringContainsString('class="custom-embed consent-manager-media-content"', $template);
+		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-media-frame="1"', $template);
+		self::assertStringContainsString('class="custom-embed"', $template);
+		self::assertStringContainsString('data-consent-media-content="1"', $template);
 		self::assertStringNotContainsString('$L_CONSENTMANAGER_MEDIA_PLACEHOLDER', $template);
 		self::assertStringNotContainsString('data-consent-open-settings="1"', $template);
 		self::assertStringContainsString('<iframe src="https://video.example.com/embed/123"', $template);
@@ -243,34 +247,13 @@ class media_manager_test extends \phpbb_test_case
 		];
 	}
 
-	/**
-	 * @dataProvider media_dom_helper_data
-	 */
-	public function test_media_dom_helpers($fixture_builder, $method_name, array $extra_arguments, $assertion_method)
+	public function test_strip_internal_s9e_attributes_removes_xsl_and_dom_attributes()
 	{
-		list($manager, $fixture) = $this->$fixture_builder();
+		list($manager, $fixture) = $this->build_strip_internal_s9e_fixture();
 
-		$this->invoke_method($manager, $method_name, array_merge([$fixture], $extra_arguments));
+		$this->invoke_method($manager, 'strip_internal_s9e_attributes', [$fixture]);
 
-		$this->$assertion_method($fixture);
-	}
-
-	public function media_dom_helper_data()
-	{
-		return [
-			'append class deduplicates existing class' => [
-				'build_append_class_fixture',
-				'append_class',
-				['consent-manager-media-content'],
-				'assert_append_class_fixture',
-			],
-			'strip internal s9e attributes removes xsl and dom attributes' => [
-				'build_strip_internal_s9e_fixture',
-				'strip_internal_s9e_attributes',
-				[],
-				'assert_strip_internal_s9e_fixture',
-			],
-		];
+		$this->assert_strip_internal_s9e_fixture($fixture);
 	}
 
 	public function test_rewrite_iframe_node_rewrites_static_and_xsl_src_and_onload_attributes()
@@ -305,20 +288,6 @@ class media_manager_test extends \phpbb_test_case
 		$method->setAccessible(true);
 
 		return $method->invokeArgs($object, $arguments);
-	}
-
-	protected function build_append_class_fixture()
-	{
-		$dom = new \DOMDocument('1.0', 'UTF-8');
-		$element = $dom->createElement('div');
-		$element->setAttribute('class', 'custom-embed consent-manager-media-content');
-
-		return [$this->manager, $element];
-	}
-
-	protected function assert_append_class_fixture(\DOMElement $element)
-	{
-		self::assertSame('custom-embed consent-manager-media-content', $element->getAttribute('class'));
 	}
 
 	protected function build_strip_internal_s9e_fixture()

@@ -263,9 +263,7 @@ test('activates deferred media embeds after media consent is granted', () => {
 		localState: createState(['necessary', 'media'], '2026-04-28T00:00:00.000Z'),
 		extraMarkup: `
 			<span data-consent-media-container="1" data-consent-category="media">
-				<span data-consent-media-placeholder="1">
-					<span class="consent-manager-media-placeholder-copy"></span>
-				</span>
+				<span data-consent-media-placeholder="1"></span>
 				<span data-consent-media-content="1" hidden="hidden">
 					<iframe
 						data-consent-media-frame="1"
@@ -280,12 +278,12 @@ test('activates deferred media embeds after media consent is granted', () => {
 	const container = document.querySelector('[data-consent-media-container="1"]');
 	const placeholder = container.querySelector('[data-consent-media-placeholder="1"]');
 	const content = container.querySelector('[data-consent-media-content="1"]');
-	const frame = container.querySelector('[data-consent-media-frame="1"]');
+	const frame = content.querySelector('iframe');
 
 	expect(container.getAttribute('data-consent-processed')).toBe('1');
 	expect(placeholder.hidden).toBe(true);
 	expect(content.hidden).toBe(false);
-	expect(placeholder.querySelector('.consent-manager-media-placeholder-copy').textContent).toBe('Embedded media is blocked until you allow media in the Privacy Settings.');
+	expect(placeholder.textContent).toBe('Embedded media is blocked until you allow media in the Privacy Settings.');
 	expect(frame.getAttribute('src')).toBe('https://media.example.com/embed/123');
 	expect(frame.hasAttribute('data-consent-src')).toBe(false);
 	expect(frame.getAttribute('onload')).toBe('window.mediaLoaded = true;');
@@ -295,9 +293,7 @@ test('saving newly granted media consent activates blocked embeds immediately', 
 	const { window, document } = setupConsentManager({
 		extraMarkup: `
 			<span data-consent-media-container="1" data-consent-category="media">
-				<span data-consent-media-placeholder="1">
-					<span class="consent-manager-media-placeholder-copy"></span>
-				</span>
+				<span data-consent-media-placeholder="1"></span>
 				<span data-consent-media-content="1" hidden="hidden">
 					<iframe
 						data-consent-media-frame="1"
@@ -311,12 +307,12 @@ test('saving newly granted media consent activates blocked embeds immediately', 
 	const container = document.querySelector('[data-consent-media-container="1"]');
 	const placeholder = container.querySelector('[data-consent-media-placeholder="1"]');
 	const content = container.querySelector('[data-consent-media-content="1"]');
-	const frame = container.querySelector('[data-consent-media-frame="1"]');
+	const frame = content.querySelector('iframe');
 	const mediaCheckbox = document.querySelector('[data-consent-toggle="media"]');
 
 	expect(placeholder.hidden).toBe(false);
 	expect(content.hidden).toBe(true);
-	expect(placeholder.querySelector('.consent-manager-media-placeholder-copy').textContent).toBe('Embedded media is blocked until you allow media in the Privacy Settings.');
+	expect(placeholder.textContent).toBe('Embedded media is blocked until you allow media in the Privacy Settings.');
 	expect(frame.hasAttribute('src')).toBe(false);
 
 	mediaCheckbox.checked = true;
@@ -326,5 +322,66 @@ test('saving newly granted media consent activates blocked embeds immediately', 
 	expect(placeholder.hidden).toBe(true);
 	expect(content.hidden).toBe(false);
 	expect(frame.getAttribute('src')).toBe('https://media.example.com/embed/123');
+	expect(frame.hasAttribute('data-consent-src')).toBe(false);
+});
+
+test('activates deferred embeds when the media content element is the iframe itself', () => {
+	const { document } = setupConsentManager({
+		localState: createState(['necessary', 'media'], '2026-04-28T00:00:00.000Z'),
+		extraMarkup: `
+			<span data-consent-media-container="1" data-consent-category="media">
+				<span data-consent-media-placeholder="1"></span>
+				<iframe
+					data-consent-media-frame="1"
+					data-consent-media-content="1"
+					hidden="hidden"
+					data-consent-src="https://media.example.com/embed/456"
+				></iframe>
+			</span>
+		`
+	});
+
+	const container = document.querySelector('[data-consent-media-container="1"]');
+	const placeholder = container.querySelector('[data-consent-media-placeholder="1"]');
+	const frame = container.querySelector('[data-consent-media-content="1"]');
+
+	expect(container.getAttribute('data-consent-processed')).toBe('1');
+	expect(placeholder.hidden).toBe(true);
+	expect(frame.hidden).toBe(false);
+	expect(frame.getAttribute('src')).toBe('https://media.example.com/embed/456');
+	expect(frame.hasAttribute('data-consent-src')).toBe(false);
+});
+
+test('saving consent activates deferred embeds when the media content element is the iframe itself', () => {
+	const { window, document } = setupConsentManager({
+		extraMarkup: `
+			<span data-consent-media-container="1" data-consent-category="media">
+				<span data-consent-media-placeholder="1"></span>
+				<iframe
+					data-consent-media-frame="1"
+					data-consent-media-content="1"
+					hidden="hidden"
+					data-consent-src="https://media.example.com/embed/456"
+				></iframe>
+			</span>
+		`
+	});
+
+	const container = document.querySelector('[data-consent-media-container="1"]');
+	const placeholder = container.querySelector('[data-consent-media-placeholder="1"]');
+	const frame = container.querySelector('[data-consent-media-content="1"]');
+	const mediaCheckbox = document.querySelector('[data-consent-toggle="media"]');
+
+	expect(placeholder.hidden).toBe(false);
+	expect(frame.hidden).toBe(true);
+	expect(frame.hasAttribute('src')).toBe(false);
+
+	mediaCheckbox.checked = true;
+	click(window, '[data-consent-action="save-settings"]');
+
+	expect(container.getAttribute('data-consent-processed')).toBe('1');
+	expect(placeholder.hidden).toBe(true);
+	expect(frame.hidden).toBe(false);
+	expect(frame.getAttribute('src')).toBe('https://media.example.com/embed/456');
 	expect(frame.hasAttribute('data-consent-src')).toBe(false);
 });

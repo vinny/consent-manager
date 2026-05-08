@@ -432,13 +432,10 @@ Twig example:
 
 ```twig
 {% if S_CONSENTMANAGER_MEDIA_ENABLED %}
-	<span class="consent-manager-media-embed"
-		data-consent-media-container="1"
+	<span data-consent-media-container="1"
 		data-consent-category="media">
-		<span class="consent-manager-media-placeholder" data-consent-media-placeholder="1">
-			<span class="consent-manager-media-placeholder-copy"></span>
-		</span>
-		<span class="consent-manager-media-content" data-consent-media-content="1" hidden="hidden">
+		<span data-consent-media-placeholder="1"></span>
+		<span data-consent-media-content="1" hidden="hidden">
 			<iframe
 				data-consent-media-frame="1"
 				data-consent-src="https://media.example.com/embed/123"
@@ -463,7 +460,6 @@ How it works:
 - `data-consent-media-container="1"` marks the deferred embed block
 - `data-consent-category="media"` ties the block to the media consent category
 - `data-consent-media-placeholder="1"` marks the blocked placeholder content
-- `consent-manager-media-placeholder-copy` is populated from Consent Manager's frontend payload, so the localized placeholder text is translated once per page rather than once per rewritten embed
 - `data-consent-media-content="1"` wraps the real media markup
 - `data-consent-media-frame="1"` marks iframe nodes that should be activated after consent
 - `data-consent-src` stores the real iframe URL until Consent Manager moves it back to `src`

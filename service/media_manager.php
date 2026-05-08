@@ -239,14 +239,12 @@ class media_manager
 	protected function wrap_media_root(\DOMDocument $dom, \DOMElement $media_root)
 	{
 		$container = $dom->createElement('span');
-		$container->setAttribute('class', 'consent-manager-media-embed');
 		$container->setAttribute('data-consent-media-container', '1');
 		$container->setAttribute('data-consent-category', self::MEDIA_CATEGORY);
 
 		$placeholder = $dom->createDocumentFragment();
 		$placeholder->appendXML($this->get_media_placeholder_markup());
 
-		$this->append_class($media_root, 'consent-manager-media-content');
 		$media_root->setAttribute('data-consent-media-content', '1');
 		$media_root->setAttribute('hidden', 'hidden');
 
@@ -312,32 +310,6 @@ class media_manager
 	 */
 	protected function get_media_placeholder_markup()
 	{
-		return '<span class="consent-manager-media-placeholder" data-consent-media-placeholder="1">'
-			. '<span class="consent-manager-media-placeholder-copy"></span>'
-			. '</span>';
-	}
-
-	/**
-	 * Append a CSS class to a DOM element without duplicating existing values.
-	 *
-	 * @param \DOMElement $element DOM element
-	 * @param string      $class   Class name to append
-	 *
-	 * @return void
-	 */
-	protected function append_class(\DOMElement $element, $class)
-	{
-		$classes = preg_split('/\s+/', trim($element->getAttribute('class')));
-		if (!$classes || $classes === [''])
-		{
-			$classes = [];
-		}
-
-		if (!in_array($class, $classes, true))
-		{
-			$classes[] = $class;
-		}
-
-		$element->setAttribute('class', trim(implode(' ', $classes)));
+		return '<span data-consent-media-placeholder="1"></span>';
 	}
 }
