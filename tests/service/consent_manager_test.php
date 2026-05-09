@@ -69,6 +69,7 @@ class consent_manager_test extends \phpbb_test_case
 		$manager = $this->get_manager(array(
 			'consentmanager_analytics_enabled' => 1,
 			'consentmanager_marketing_enabled' => 0,
+			'consentmanager_media_enabled' => 1,
 			'consentmanager_consent_version' => 7,
 		));
 
@@ -76,9 +77,11 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame('phpbb_consent_manager', $manager->get_cookie_name());
 		self::assertSame(7, $manager->get_version());
 		self::assertTrue($manager->is_supported_category('analytics'));
+		self::assertTrue($manager->is_supported_category('media'));
 		self::assertFalse($manager->is_supported_category('foobar'));
 		self::assertTrue($manager->is_category_enabled('analytics'));
 		self::assertFalse($manager->is_category_enabled('marketing'));
+		self::assertTrue($manager->is_category_enabled('media'));
 		self::assertTrue($manager->has_optional_categories());
 
 		$categories = $manager->get_categories();
@@ -86,8 +89,6 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertTrue($categories['necessary']['required']);
 		self::assertTrue($categories['necessary']['enabled']);
 
-		$manager->reset_consent_version();
-		self::assertSame(8, $manager->get_version());
 	}
 
 	/**
@@ -266,8 +267,8 @@ class consent_manager_test extends \phpbb_test_case
 		$payload = $manager->build_frontend_payload('/app.php/consent/log', 'deadbeef');
 
 		self::assertSame(array('necessary'), $payload['requiredCategories']);
-		self::assertSame(array('necessary', 'analytics'), $payload['enabledCategories']);
-		self::assertSame(array('analytics'), $payload['optionalCategories']);
+		self::assertSame(array('necessary', 'analytics', 'media'), $payload['enabledCategories']);
+		self::assertSame(array('analytics', 'media'), $payload['optionalCategories']);
 		self::assertSame(array(
 			array(
 				'id' => 'necessary',
@@ -284,6 +285,11 @@ class consent_manager_test extends \phpbb_test_case
 				'required' => false,
 				'enabled' => false,
 			),
+			array(
+				'id' => 'media',
+				'required' => false,
+				'enabled' => true,
+			),
 		), $payload['categories']);
 		self::assertSame('/app.php/consent/log', $payload['logEndpoint']);
 		self::assertSame('deadbeef', $payload['logHash']);
@@ -299,13 +305,13 @@ class consent_manager_test extends \phpbb_test_case
 
 		self::assertTrue($data['S_CONSENTMANAGER_ENABLED']);
 		self::assertTrue($data['S_CONSENTMANAGER_ANALYTICS_ENABLED']);
+		self::assertTrue($data['S_CONSENTMANAGER_MEDIA_ENABLED']);
 		self::assertTrue($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
 		self::assertFalse($data['S_COOKIE_NOTICE']);
 		self::assertSame('/app.php/consent/log?x=<test>', $payload['logEndpoint']);
 		self::assertSame('abc123', $payload['logHash']);
 		self::assertArrayNotHasKey('label', $payload['categories'][0]);
 		self::assertArrayNotHasKey('description', $payload['categories'][0]);
-		self::assertArrayNotHasKey('strings', $payload);
 		self::assertArrayNotHasKey('banner', $payload);
 		self::assertArrayNotHasKey('services', $payload);
 	}
@@ -315,12 +321,14 @@ class consent_manager_test extends \phpbb_test_case
 		$manager = $this->get_manager(array(
 			'consentmanager_analytics_enabled' => 0,
 			'consentmanager_marketing_enabled' => 0,
+			'consentmanager_media_enabled' => 0,
 		));
 		$data = $manager->get_frontend_template_data('/app.php/consent/log', 'abc123');
 
 		self::assertFalse($data['S_CONSENTMANAGER_ENABLED']);
 		self::assertFalse($data['S_CONSENTMANAGER_ANALYTICS_ENABLED']);
 		self::assertFalse($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
+		self::assertFalse($data['S_CONSENTMANAGER_MEDIA_ENABLED']);
 		self::assertSame('', $data['CONSENTMANAGER_PAYLOAD']);
 		self::assertArrayNotHasKey('S_COOKIE_NOTICE', $data);
 	}
@@ -330,6 +338,7 @@ class consent_manager_test extends \phpbb_test_case
 		$manager = $this->get_manager(array(
 			'consentmanager_analytics_enabled' => 0,
 			'consentmanager_marketing_enabled' => 0,
+			'consentmanager_media_enabled' => 0,
 		));
 
 		self::assertFalse($manager->has_optional_categories());
@@ -382,6 +391,13 @@ class consent_manager_test extends \phpbb_test_case
 					),
 				),
 			),
+			array(
+				'ID' => 'media',
+				'LABEL' => $this->language->lang('CONSENTMANAGER_CATEGORY_MEDIA'),
+				'DESCRIPTION' => $this->language->lang('CONSENTMANAGER_CATEGORY_MEDIA_EXPLAIN'),
+				'REQUIRED' => false,
+				'services' => array(),
+			),
 		), $manager->get_frontend_category_data());
 	}
 
@@ -402,165 +418,6 @@ class consent_manager_test extends \phpbb_test_case
 	public function test_get_configured_integrations_returns_empty_array_for_invalid_data()
 	{
 		self::assertSame(array(), $this->get_manager(array(), '{not json')->get_configured_integrations());
-	}
-
-	public function test_get_acp_template_data_pretty_prints_stored_integrations()
-	{
-		$template_data = $this->get_manager(array(), $this->get_submitted_integrations_json())->get_acp_template_data();
-
-		self::assertSame($this->get_pretty_integrations_json(), $template_data['CONSENTMANAGER_INTEGRATIONS']);
-		self::assertSame(1, $template_data['CONSENTMANAGER_VERSION']);
-	}
-
-	public function test_get_acp_template_data_returns_empty_integrations_when_none_are_stored()
-	{
-		$template_data = $this->get_manager()->get_acp_template_data();
-
-		self::assertSame('', $template_data['CONSENTMANAGER_INTEGRATIONS']);
-	}
-
-	public function test_get_acp_template_data_keeps_invalid_json_verbatim()
-	{
-		$template_data = $this->get_manager(array(), '{not json')->get_acp_template_data();
-
-		self::assertSame('{not json', $template_data['CONSENTMANAGER_INTEGRATIONS']);
-	}
-
-	public function test_save_acp_settings_updates_flags_and_integrations()
-	{
-		$config_text = $this->createMock('\phpbb\config\db_text');
-		$config_text->expects(self::once())
-			->method('set')
-			->with('consentmanager_integrations', trim($this->get_pretty_integrations_json()));
-
-		$manager = $this->get_manager(array(), '', null, $config_text);
-		$errors = array();
-
-		self::assertTrue($manager->save_acp_settings(array(
-			'analytics_enabled' => 0,
-			'marketing_enabled' => 1,
-			'integrations' => $this->get_pretty_integrations_json(),
-		), $errors));
-		self::assertSame(array(), $errors);
-		self::assertFalse($manager->is_category_enabled('analytics'));
-		self::assertTrue($manager->is_category_enabled('marketing'));
-	}
-
-	public function test_save_acp_settings_stores_empty_integrations_as_empty_string()
-	{
-		$config_text = $this->createMock('\phpbb\config\db_text');
-		$config_text->expects(self::once())
-			->method('set')
-			->with('consentmanager_integrations', '');
-
-		$manager = $this->get_manager(array(), '', null, $config_text);
-		$errors = array();
-
-		self::assertTrue($manager->save_acp_settings(array(
-			'analytics_enabled' => 1,
-			'marketing_enabled' => 0,
-			'integrations' => '',
-		), $errors));
-		self::assertSame(array(), $errors);
-	}
-
-	public function test_save_acp_settings_accepts_array_integrations()
-	{
-		$integrations = array(
-			array(
-				'id' => 'board.analytics',
-				'category' => 'analytics',
-				'label' => 'Board Analytics',
-				'description' => 'Loads a simple analytics library after consent.',
-				'src' => 'https://cdn.example.com/analytics.js',
-				'async' => true,
-			),
-		);
-
-		$config_text = $this->createMock('\phpbb\config\db_text');
-		$config_text->expects(self::once())
-			->method('set')
-			->with(
-				'consentmanager_integrations',
-				json_encode($integrations, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
-			);
-
-		$manager = $this->get_manager(array(), '', null, $config_text);
-		$errors = array();
-
-		self::assertTrue($manager->save_acp_settings(array(
-			'analytics_enabled' => 1,
-			'marketing_enabled' => 1,
-			'integrations' => $integrations,
-		), $errors));
-		self::assertSame(array(), $errors);
-	}
-
-	/**
-	 * @dataProvider invalid_integrations_data
-	 */
-	public function test_save_acp_settings_rejects_invalid_integrations($json)
-	{
-		$config_text = $this->createMock('\phpbb\config\db_text');
-		$config_text->expects(self::never())
-			->method('set');
-
-		$manager = $this->get_manager(array(), '', null, $config_text);
-		$errors = array();
-
-		self::assertFalse($manager->save_acp_settings(array(
-			'analytics_enabled' => 1,
-			'marketing_enabled' => 1,
-			'integrations' => $json,
-		), $errors));
-		self::assertSame(array($this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS')), $errors);
-	}
-
-	public function invalid_integrations_data()
-	{
-		return array(
-			'malformed json' => array('{not json'),
-			'top level object' => array($this->get_non_array_integrations_json()),
-		);
-	}
-
-	/**
-	 * @dataProvider invalid_array_integrations_data
-	 */
-	public function test_save_acp_settings_rejects_invalid_array_integrations($integrations, array $expected_error_specs)
-	{
-		$config_text = $this->createMock('\phpbb\config\db_text');
-		$config_text->expects(self::never())
-			->method('set');
-
-		$manager = $this->get_manager(array(), '', null, $config_text);
-		$errors = array();
-
-		self::assertFalse($manager->save_acp_settings(array(
-			'analytics_enabled' => 1,
-			'marketing_enabled' => 1,
-			'integrations' => $integrations,
-		), $errors));
-		self::assertSame($this->get_language_messages($expected_error_specs), $errors);
-	}
-
-	public function invalid_array_integrations_data()
-	{
-		return array(
-			'invalid entry' => array(
-				array('not-an-array'),
-				array(array('ACP_CONSENTMANAGER_INVALID_INTEGRATION_ENTRY', 1)),
-			),
-			'encoding failure' => array(
-				array(array(
-					'id' => 'board.analytics',
-					'category' => 'analytics',
-					'label' => "\xB1\x31",
-					'src' => 'https://cdn.example.com/analytics.js',
-				)),
-				array(array('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS')),
-			),
-		);
 	}
 
 	public function test_normalize_integrations_reports_invalid_entries_and_keeps_last_duplicate()
@@ -606,8 +463,8 @@ class consent_manager_test extends \phpbb_test_case
 		));
 
 		self::assertSame(
-			array('necessary', 'analytics'),
-			$manager->normalize_categories(array('analytics', 'necessary', 'marketing', 'analytics', 'unknown'))
+			array('necessary', 'analytics', 'media'),
+			$manager->normalize_categories(array('analytics', 'necessary', 'media', 'marketing', 'analytics', 'unknown'))
 		);
 	}
 
@@ -647,6 +504,27 @@ class consent_manager_test extends \phpbb_test_case
 				array(array('ACP_CONSENTMANAGER_INVALID_INTEGRATION_ENTRY', 1)),
 			),
 		);
+	}
+
+	public function test_normalize_integrations_rejects_top_level_object_json_string()
+	{
+		$manager = $this->get_manager();
+		$errors = array();
+
+		self::assertSame(array(), $manager->normalize_integrations($this->get_non_array_integrations_json(), $errors));
+		self::assertSame(
+			array($this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS')),
+			$errors
+		);
+	}
+
+	public function test_normalize_integrations_accepts_empty_json_array_string()
+	{
+		$manager = $this->get_manager();
+		$errors = array();
+
+		self::assertSame(array(), $manager->normalize_integrations(' [] ', $errors));
+		self::assertSame(array(), $errors);
 	}
 
 	public function test_validate_log_payload_accepts_valid_hash_and_normalizes_categories()
@@ -697,6 +575,101 @@ class consent_manager_test extends \phpbb_test_case
 		), $submission);
 	}
 
+	public function test_has_server_consent_accepts_valid_cookie_and_normalizes_categories()
+	{
+		$request = $this->get_cookie_request(json_encode([
+			'categories' => ['media', 'analytics', 'unknown'],
+			'timestamp' => '2026-05-06T10:00:00.000Z',
+			'version' => 3,
+		]));
+		$manager = $this->get_manager([
+			'consentmanager_consent_version' => 3,
+			'consentmanager_marketing_enabled' => 0,
+		], '', null, null, null, $request);
+
+		self::assertTrue($manager->has_server_consent('media'));
+		self::assertTrue($manager->has_server_consent('analytics'));
+		self::assertFalse($manager->has_server_consent('marketing'));
+	}
+
+	public function test_has_server_consent_returns_true_for_required_category_and_false_for_unsupported_category()
+	{
+		$manager = $this->get_manager();
+
+		self::assertTrue($manager->has_server_consent('necessary'));
+		self::assertFalse($manager->has_server_consent('unsupported'));
+	}
+
+	public function test_has_server_consent_reuses_cached_cookie_state()
+	{
+		$request = $this->createMock('\phpbb\request\request_interface');
+		$request->expects(self::once())
+			->method('raw_variable')
+			->with(
+				\phpbb\consentmanager\service\consent_manager::COOKIE_NAME,
+				'',
+				\phpbb\request\request_interface::COOKIE
+			)
+			->willReturn(json_encode([
+				'categories' => ['analytics'],
+				'version' => 3,
+			]));
+
+		$manager = $this->get_manager([
+			'consentmanager_consent_version' => 3,
+		], '', null, null, null, $request);
+
+		self::assertTrue($manager->has_server_consent('analytics'));
+		self::assertFalse($manager->has_server_consent('marketing'));
+		self::assertTrue($manager->has_server_consent('analytics'));
+	}
+
+	/**
+	 * @dataProvider invalid_server_consent_cookie_data
+	 */
+	public function test_has_server_consent_rejects_invalid_cookie_state($cookie_value, array $config_values, $category)
+	{
+		$manager = $this->get_manager($config_values, '', null, null, null, $this->get_cookie_request($cookie_value));
+
+		self::assertFalse($manager->has_server_consent($category));
+	}
+
+	public function invalid_server_consent_cookie_data()
+	{
+		return [
+			'stale version' => [
+				json_encode([
+					'categories' => ['media'],
+					'version' => 1,
+				]),
+				[
+					'consentmanager_consent_version' => 2,
+				],
+				'media',
+			],
+			'invalid json' => [
+				'{not json',
+				[],
+				'media',
+			],
+			'empty cookie' => [
+				'',
+				[],
+				'media',
+			],
+			'invalid categories shape' => [
+				json_encode([
+					'categories' => 'analytics',
+					'version' => 2,
+				]),
+				[
+					'consentmanager_consent_version' => 2,
+				],
+				'analytics',
+			],
+		];
+	}
+
 	public function test_register_resolves_template_assets_via_twig_lookup()
 	{
 		$twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
@@ -743,7 +716,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame(array(), $this->get_service('vendor.missing-template', $manager)['scripts']);
 	}
 
-	protected function get_manager(array $config_values = array(), $stored_integrations = '', $dispatcher = null, $config_text = null, $twig_environment = null)
+	protected function get_manager(array $config_values = array(), $stored_integrations = '', $dispatcher = null, $config_text = null, $twig_environment = null, $request = null)
 	{
 		if ($config_text === null)
 		{
@@ -758,6 +731,7 @@ class consent_manager_test extends \phpbb_test_case
 		$config = new \phpbb\config\config(array_merge(array(
 			'consentmanager_analytics_enabled' => 1,
 			'consentmanager_marketing_enabled' => 1,
+			'consentmanager_media_enabled' => 1,
 			'consentmanager_consent_version' => 1,
 			'assets_version' => '42',
 			'rand_seed' => 'seed',
@@ -773,6 +747,11 @@ class consent_manager_test extends \phpbb_test_case
 				->willReturn($this->phpbb_root_path);
 		}
 
+		if ($request === null)
+		{
+			$request = $this->get_cookie_request('');
+		}
+
 		return new \phpbb\consentmanager\service\consent_manager(
 			$config,
 			$config_text,
@@ -780,7 +759,8 @@ class consent_manager_test extends \phpbb_test_case
 			$dispatcher,
 			$twig_environment,
 			$this->path_helper,
-			$this->filesystem
+			$this->filesystem,
+			$request
 		);
 	}
 
@@ -793,6 +773,22 @@ class consent_manager_test extends \phpbb_test_case
 			));
 
 		return $config_text;
+	}
+
+	protected function get_cookie_request($cookie_value)
+	{
+		$request = $this->createMock('\phpbb\request\request_interface');
+		$request->method('raw_variable')
+			->willReturnCallback(function ($name, $default, $super_global = null) use ($cookie_value) {
+				if ($name === \phpbb\consentmanager\service\consent_manager::COOKIE_NAME && $super_global === \phpbb\request\request_interface::COOKIE)
+				{
+					return $cookie_value;
+				}
+
+				return $default;
+			});
+
+		return $request;
 	}
 
 	protected function get_service($id, \phpbb\consentmanager\service\consent_manager $manager)

@@ -40,30 +40,6 @@ interface consent_manager_interface
 	public function get_frontend_category_data();
 
 	/**
-	 * Build template variables for the ACP settings page.
-	 *
-	 * @return array
-	 */
-	public function get_acp_template_data();
-
-	/**
-	 * Persist ACP settings for consent manager.
-	 *
-	 * @param array $settings Submitted settings
-	 * @param array $errors   Validation errors
-	 *
-	 * @return bool
-	 */
-	public function save_acp_settings(array $settings, array &$errors = []);
-
-	/**
-	 * Increment the consent version to re-prompt users.
-	 *
-	 * @return void
-	 */
-	public function reset_consent_version();
-
-	/**
 	 * Validate a frontend consent logging payload.
 	 *
 	 * @param array $payload Submitted payload
@@ -151,4 +127,13 @@ interface consent_manager_interface
 	 * @return bool
 	 */
 	public function has_optional_categories();
+
+	/**
+	 * Determine whether a previously stored consent cookie currently grants a category.
+	 *
+	 * @param string $category Category identifier
+	 *
+	 * @return bool
+	 */
+	public function has_server_consent($category);
 }

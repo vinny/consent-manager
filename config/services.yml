@@ -12,6 +12,7 @@ services:
             - '@template.twig.environment'
             - '@path_helper'
             - '@filesystem'
+            - '@request'
 
     phpbb.consentmanager.log_manager:
         class: phpbb\consentmanager\service\log_manager
@@ -26,9 +27,18 @@ services:
         arguments:
             - '@config'
             - '@dbal.conn'
+            - '@config_text'
+            - '@language'
             - '@log'
+            - '@phpbb.consentmanager.service'
+            - '@text_formatter.cache'
             - '@user'
             - '%tables.phpbb.consentmanager.consent_logs%'
+
+    phpbb.consentmanager.media_manager:
+        class: phpbb\consentmanager\service\media_manager
+        arguments:
+            - '@phpbb.consentmanager.service'
 
     phpbb.consentmanager.listener:
         class: phpbb\consentmanager\event\listener
@@ -37,6 +47,7 @@ services:
             - '@language'
             - '@phpbb.consentmanager.service'
             - '@template'
+            - '@phpbb.consentmanager.media_manager'
         tags:
             - { name: event.listener }
 
@@ -44,7 +55,6 @@ services:
         class: phpbb\consentmanager\controller\acp_controller
         arguments:
             - '@language'
-            - '@phpbb.consentmanager.service'
             - '@phpbb.consentmanager.acp_manager'
             - '@request'
             - '@template'

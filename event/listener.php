@@ -11,6 +11,7 @@
 namespace phpbb\consentmanager\event;
 
 use phpbb\consentmanager\service\consent_manager_interface;
+use phpbb\consentmanager\service\media_manager;
 use phpbb\controller\helper;
 use phpbb\language\language;
 use phpbb\template\template;
@@ -30,6 +31,9 @@ class listener implements EventSubscriberInterface
 	/** @var template */
 	protected $template;
 
+	/** @var media_manager */
+	protected $media_manager;
+
 	/**
 	 * Constructor.
 	 *
@@ -37,13 +41,15 @@ class listener implements EventSubscriberInterface
 	 * @param language                  $language Language service
 	 * @param consent_manager_interface $consent_manager Consent manager service
 	 * @param template                  $template Template service
+	 * @param media_manager             $media_manager Media manager
 	 */
-	public function __construct(helper $helper, language $language, consent_manager_interface $consent_manager, template $template)
+	public function __construct(helper $helper, language $language, consent_manager_interface $consent_manager, template $template, media_manager $media_manager)
 	{
 		$this->helper = $helper;
 		$this->language = $language;
 		$this->consent_manager = $consent_manager;
 		$this->template = $template;
+		$this->media_manager = $media_manager;
 	}
 
 	/**
@@ -54,8 +60,34 @@ class listener implements EventSubscriberInterface
 	public static function getSubscribedEvents()
 	{
 		return [
+			'core.text_formatter_s9e_configure_after' => [['configure_iframe_embeds', -10]],
+			'core.text_formatter_s9e_renderer_setup' => 'configure_iframe_renderer',
 			'core.page_header_after' => 'inject_frontend',
 		];
+	}
+
+	/**
+	 * Transform s9e-rendered iframe output into consent-aware placeholders.
+	 *
+	 * @param \phpbb\event\data $event Event data
+	 *
+	 * @return void
+	 */
+	public function configure_iframe_embeds($event)
+	{
+		$this->media_manager->configure_iframe_embeds($event['configurator']);
+	}
+
+	/**
+	 * Pass the current request's media consent state into the s9e renderer.
+	 *
+	 * @param \phpbb\event\data $event Event data
+	 *
+	 * @return void
+	 */
+	public function configure_iframe_renderer($event)
+	{
+		$this->media_manager->configure_iframe_renderer($event['renderer']);
 	}
 
 	/**
@@ -65,12 +97,7 @@ class listener implements EventSubscriberInterface
 	 */
 	public function inject_frontend()
 	{
-		if ($this->is_acp_or_installer())
-		{
-			return;
-		}
-
-		if (!$this->consent_manager->has_optional_categories())
+		if ($this->is_acp_or_installer() || !$this->consent_manager->has_optional_categories())
 		{
 			return;
 		}
@@ -93,7 +120,7 @@ class listener implements EventSubscriberInterface
 	}
 
 	/**
-	 * Determine whether we are in the ACP or the installer.
+	 * Determine whether the current request is running in the ACP or installer.
 	 *
 	 * @return bool
 	 */

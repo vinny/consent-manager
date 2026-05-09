@@ -41,6 +41,7 @@ class acp_test extends \phpbb_functional_test_case
 		$form = $crawler->selectButton($this->lang('SUBMIT'))->form();
 		$form['consentmanager_analytics_enabled']->select('0');
 		$form['consentmanager_marketing_enabled']->select('1');
+		$form['consentmanager_media_enabled']->select('1');
 		$form['consentmanager_integrations']->setValue('[{"id":"board.analytics","category":"analytics","label":"Board Analytics","src":"https://cdn.example.com/analytics.js"}]');
 
 		$crawler = self::submit($form);
@@ -49,7 +50,7 @@ class acp_test extends \phpbb_functional_test_case
 
 		$sql = 'SELECT config_name, config_value
 			FROM ' . CONFIG_TABLE . '
-			WHERE config_name IN (\'consentmanager_analytics_enabled\', \'consentmanager_marketing_enabled\')';
+			WHERE config_name IN (\'consentmanager_analytics_enabled\', \'consentmanager_marketing_enabled\', \'consentmanager_media_enabled\')';
 		$result = $this->db->sql_query($sql);
 		$rows = $this->db->sql_fetchrowset($result);
 		$this->db->sql_freeresult($result);
@@ -62,6 +63,7 @@ class acp_test extends \phpbb_functional_test_case
 
 		$this->assertSame('0', $config['consentmanager_analytics_enabled']);
 		$this->assertSame('1', $config['consentmanager_marketing_enabled']);
+		$this->assertSame('1', $config['consentmanager_media_enabled']);
 
 		$sql = 'SELECT config_value
 			FROM ' . CONFIG_TEXT_TABLE . '

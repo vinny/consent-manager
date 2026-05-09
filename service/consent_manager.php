@@ -16,6 +16,7 @@ use phpbb\event\dispatcher_interface;
 use phpbb\filesystem\filesystem;
 use phpbb\language\language;
 use phpbb\path_helper;
+use phpbb\request\request_interface;
 use phpbb\template\asset;
 use phpbb\template\twig\environment;
 use Twig\Error\LoaderError;
@@ -46,11 +47,20 @@ class consent_manager implements consent_manager_interface
 	/** @var filesystem */
 	protected $filesystem;
 
+	/** @var request_interface */
+	protected $request;
+
 	/** @var array */
 	protected $registrations = [];
 
 	/** @var bool */
 	protected $registrations_collected = false;
+
+	/** @var bool */
+	protected $server_consent_state_loaded = false;
+
+	/** @var array|null */
+	protected $server_consent_state;
 
 	/**
 	 * Constructor.
@@ -62,8 +72,9 @@ class consent_manager implements consent_manager_interface
 	 * @param environment          $twig_environment Twig environment
 	 * @param path_helper          $path_helper Path helper
 	 * @param filesystem           $filesystem Filesystem helper
+	 * @param request_interface    $request Request service
 	 */
-	public function __construct(config $config, db_text $config_text, language $language, dispatcher_interface $dispatcher, environment $twig_environment, path_helper $path_helper, filesystem $filesystem)
+	public function __construct(config $config, db_text $config_text, language $language, dispatcher_interface $dispatcher, environment $twig_environment, path_helper $path_helper, filesystem $filesystem, request_interface $request)
 	{
 		$this->config = $config;
 		$this->config_text = $config_text;
@@ -72,6 +83,7 @@ class consent_manager implements consent_manager_interface
 		$this->twig_environment = $twig_environment;
 		$this->path_helper = $path_helper;
 		$this->filesystem = $filesystem;
+		$this->request = $request;
 	}
 
 	/**
@@ -157,6 +169,7 @@ class consent_manager implements consent_manager_interface
 			'S_CONSENTMANAGER_ENABLED'				=> $has_optional_categories,
 			'S_CONSENTMANAGER_ANALYTICS_ENABLED'	=> !empty($categories['analytics']['enabled']),
 			'S_CONSENTMANAGER_MARKETING_ENABLED'	=> !empty($categories['marketing']['enabled']),
+			'S_CONSENTMANAGER_MEDIA_ENABLED'		=> !empty($categories['media']['enabled']),
 			'CONSENTMANAGER_PAYLOAD'				=> $has_optional_categories ? json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) : '',
 		];
 
@@ -213,59 +226,6 @@ class consent_manager implements consent_manager_interface
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Build template variables for the ACP settings page.
-	 *
-	 * @return array
-	 */
-	public function get_acp_template_data()
-	{
-		return [
-			'S_CONSENTMANAGER_ANALYTICS'	=> (bool) $this->config['consentmanager_analytics_enabled'],
-			'S_CONSENTMANAGER_MARKETING'	=> (bool) $this->config['consentmanager_marketing_enabled'],
-			'CONSENTMANAGER_INTEGRATIONS'	=> $this->get_acp_integrations_json(),
-			'CONSENTMANAGER_VERSION'		=> $this->get_version(),
-		];
-	}
-
-	/**
-	 * Validate and persist ACP consent manager settings.
-	 *
-	 * @param array $settings Submitted settings
-	 * @param array $errors   Validation errors
-	 *
-	 * @return bool
-	 */
-	public function save_acp_settings(array $settings, array &$errors = [])
-	{
-		$errors = [];
-		$stored_integrations = $this->normalize_integrations_json(
-			$settings['integrations'] ?? '',
-			$errors
-		);
-
-		if (!empty($errors))
-		{
-			return false;
-		}
-
-		$this->config->set('consentmanager_analytics_enabled', !empty($settings['analytics_enabled']) ? 1 : 0);
-		$this->config->set('consentmanager_marketing_enabled', !empty($settings['marketing_enabled']) ? 1 : 0);
-		$this->config_text->set('consentmanager_integrations', $stored_integrations);
-
-		return true;
-	}
-
-	/**
-	 * Increment the consent version to force a fresh prompt.
-	 *
-	 * @return void
-	 */
-	public function reset_consent_version()
-	{
-		$this->config->set('consentmanager_consent_version', $this->get_version() + 1);
 	}
 
 	/**
@@ -335,7 +295,6 @@ class consent_manager implements consent_manager_interface
 			'storageKey' => $this->get_storage_key(),
 			'cookieName' => $this->get_cookie_name(),
 			'version' => $this->get_version(),
-			'deferredSelector' => 'script[type="text/plain"][data-consent-category]',
 			'requiredCategories' => $this->get_required_category_ids($categories),
 			'enabledCategories' => $this->get_enabled_category_ids($categories),
 			'optionalCategories' => $this->get_optional_category_ids($categories),
@@ -374,6 +333,13 @@ class consent_manager implements consent_manager_interface
 				'description' => $this->language->lang('CONSENTMANAGER_CATEGORY_MARKETING_EXPLAIN'),
 				'required' => false,
 				'enabled' => (bool) $this->config['consentmanager_marketing_enabled'],
+			],
+			'media' => [
+				'id' => 'media',
+				'label' => $this->language->lang('CONSENTMANAGER_CATEGORY_MEDIA'),
+				'description' => $this->language->lang('CONSENTMANAGER_CATEGORY_MEDIA_EXPLAIN'),
+				'required' => false,
+				'enabled' => (bool) $this->config['consentmanager_media_enabled'],
 			],
 		];
 	}
@@ -594,6 +560,36 @@ class consent_manager implements consent_manager_interface
 	}
 
 	/**
+	 * Determine whether a valid consent cookie currently grants the given category.
+	 *
+	 * @param string $category Category identifier
+	 *
+	 * @return bool
+	 */
+	public function has_server_consent($category)
+	{
+		if (!$this->is_supported_category($category))
+		{
+			return false;
+		}
+
+		$categories = $this->get_categories();
+		if (!empty($categories[$category]['required']))
+		{
+			return true;
+		}
+
+		if (!$this->is_category_enabled($category))
+		{
+			return false;
+		}
+
+		$state = $this->get_server_consent_state();
+
+		return !empty($state) && in_array($category, $state['categories'], true);
+	}
+
+	/**
 	 * Determine whether a category identifier is supported.
 	 *
 	 * @param string $category Category identifier
@@ -602,7 +598,45 @@ class consent_manager implements consent_manager_interface
 	 */
 	public function is_supported_category($category)
 	{
-		return in_array($category, ['necessary', 'analytics', 'marketing'], true);
+		return in_array($category, ['necessary', 'analytics', 'marketing', 'media'], true);
+	}
+
+	/**
+	 * Return the validated consent state from the current request cookie.
+	 *
+	 * @return array|null
+	 */
+	protected function get_server_consent_state()
+	{
+		if ($this->server_consent_state_loaded)
+		{
+			return $this->server_consent_state;
+		}
+
+		$this->server_consent_state_loaded = true;
+		$this->server_consent_state = null;
+
+		$raw = $this->request->raw_variable(self::COOKIE_NAME, '', request_interface::COOKIE);
+		if (!is_string($raw) || $raw === '')
+		{
+			return null;
+		}
+
+		$decoded = json_decode($raw, true);
+		if (!is_array($decoded)
+			|| !isset($decoded['version'], $decoded['categories'])
+			|| (int) $decoded['version'] !== $this->get_version()
+			|| !is_array($decoded['categories']))
+		{
+			return null;
+		}
+
+		$this->server_consent_state = [
+			'categories' => $this->normalize_categories($decoded['categories']),
+			'version' => (int) $decoded['version'],
+		];
+
+		return $this->server_consent_state;
 	}
 
 	/**
@@ -629,72 +663,6 @@ class consent_manager implements consent_manager_interface
 		*/
 		$vars = ['consent_manager'];
 		extract($this->dispatcher->trigger_event('phpbb.consentmanager.collect_registrations', compact($vars)));
-	}
-
-	/**
-	 * Normalize integrations and encode them for config text storage.
-	 *
-	 * @param string|array $input Raw JSON or decoded integrations
-	 * @param array        $errors Validation errors
-	 *
-	 * @return string
-	 */
-	protected function normalize_integrations_json($input, array &$errors = [])
-	{
-		if (is_string($input))
-		{
-			$json = trim($input);
-			if ($json === '')
-			{
-				return '';
-			}
-
-			$this->normalize_integrations($json, $errors);
-			return empty($errors) ? $json : '';
-		}
-
-		$this->normalize_integrations($input, $errors);
-		if (!empty($errors))
-		{
-			return '';
-		}
-
-		$json = json_encode($input, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		if ($json === false)
-		{
-			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS');
-			return '';
-		}
-
-		return $json;
-	}
-
-	/**
-	 * Return the stored ACP integrations JSON formatted for textarea output.
-	 *
-	 * @return string
-	 */
-	protected function get_acp_integrations_json()
-	{
-		$json = trim((string) $this->config_text->get('consentmanager_integrations'));
-		if ($json === '')
-		{
-			return '';
-		}
-
-		$decoded = json_decode($json, true);
-		if (json_last_error() !== JSON_ERROR_NONE)
-		{
-			return $json;
-		}
-
-		$pretty_json = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		if ($pretty_json === false)
-		{
-			return $json;
-		}
-
-		return $pretty_json;
 	}
 
 	/**

@@ -26,9 +26,6 @@ class acp_controller_test extends \phpbb_test_case
 	/** @var \phpbb\template\template|\PHPUnit\Framework\MockObject\MockObject */
 	protected $template;
 
-	/** @var \phpbb\consentmanager\service\consent_manager_interface|\PHPUnit\Framework\MockObject\MockObject */
-	protected $consent_manager;
-
 	/** @var \phpbb\consentmanager\service\acp_manager|\PHPUnit\Framework\MockObject\MockObject */
 	protected $acp_manager;
 
@@ -62,7 +59,6 @@ class acp_controller_test extends \phpbb_test_case
 		$this->user->lang = $this->language->get_lang_array();
 
 		$this->template        = $this->createMock('\phpbb\template\template');
-		$this->consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$this->acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');
 	}
 
@@ -70,7 +66,6 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		$controller = new \phpbb\consentmanager\controller\acp_controller(
 			$this->language,
-			$this->consent_manager,
 			$this->acp_manager,
 			$request,
 			$this->template
@@ -81,8 +76,8 @@ class acp_controller_test extends \phpbb_test_case
 
 	public function test_handle_assigns_existing_template_data()
 	{
-		$this->consent_manager->expects(self::once())
-			->method('get_acp_template_data')
+		$this->acp_manager->expects(self::once())
+			->method('get_settings_template_data')
 			->willReturn([
 				'S_CONSENTMANAGER_ANALYTICS' => true,
 				'CONSENTMANAGER_VERSION' => 1,
@@ -104,19 +99,20 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = true;
 
-		$this->consent_manager->expects(self::once())
-			->method('save_acp_settings')
+		$this->acp_manager->expects(self::once())
+			->method('save_settings')
 			->willReturnCallback(function (array $settings, array &$errors) {
 				self::assertSame([
 					'analytics_enabled' => 1,
 					'marketing_enabled' => 0,
+					'media_enabled' => 0,
 					'integrations' => 'invalid json',
 				], $settings);
 				$errors = ['Invalid integrations'];
 				return false;
 			});
-		$this->consent_manager->expects(self::once())
-			->method('get_acp_template_data')
+		$this->acp_manager->expects(self::once())
+			->method('get_settings_template_data')
 			->willReturn(['CONSENTMANAGER_VERSION' => 3]);
 		$this->acp_manager->expects(self::never())->method('log_admin_settings_updated');
 		$this->template->expects(self::once())
@@ -132,7 +128,8 @@ class acp_controller_test extends \phpbb_test_case
 			[
 				'submit' => 1,
 				'consentmanager_analytics_enabled' => 1,
-				'consentmanager_marketing_enabled' => 0
+				'consentmanager_marketing_enabled' => 0,
+				'consentmanager_media_enabled' => 0
 			],
 			['consentmanager_integrations' => "  invalid json  \n"]
 		);
@@ -143,7 +140,7 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = true;
 
-		$this->consent_manager->expects(self::once())->method('save_acp_settings')->willReturn(true);
+		$this->acp_manager->expects(self::once())->method('save_settings')->willReturn(true);
 		$this->acp_manager->expects(self::once())->method('log_admin_settings_updated');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('CONFIG_UPDATED'));
 
@@ -151,7 +148,8 @@ class acp_controller_test extends \phpbb_test_case
 			[
 				'submit' => 1,
 				'consentmanager_analytics_enabled' => 0,
-				'consentmanager_marketing_enabled' => 1
+				'consentmanager_marketing_enabled' => 1,
+				'consentmanager_media_enabled' => 1
 			],
 			['consentmanager_integrations' => '[]']
 		);
@@ -162,7 +160,7 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = true;
 
-		$this->consent_manager->expects(self::once())->method('reset_consent_version');
+		$this->acp_manager->expects(self::once())->method('reset_consent_version');
 		$this->acp_manager->expects(self::once())->method('log_admin_reprompt');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS'));
 
@@ -173,7 +171,7 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = false;
 
-		$this->consent_manager->expects(self::never())->method('save_acp_settings');
+		$this->acp_manager->expects(self::never())->method('save_settings');
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
 		$this->create_controller($this->create_request_mock(['submit' => 1]))->handle();
@@ -183,7 +181,7 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = false;
 
-		$this->consent_manager->expects(self::never())->method('reset_consent_version');
+		$this->acp_manager->expects(self::never())->method('reset_consent_version');
 		$this->acp_manager->expects(self::never())->method('log_admin_reprompt');
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
@@ -304,7 +302,6 @@ class acp_controller_test extends \phpbb_test_case
 
 		$controller = new \phpbb\consentmanager\tests\controller\testable_acp_controller(
 			$this->language,
-			$this->consent_manager,
 			$this->acp_manager,
 			$request,
 			$this->template

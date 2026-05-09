@@ -24,6 +24,8 @@ class frontend_test extends \phpbb_functional_test_case
 	{
 		parent::setUp();
 
+		$this->add_lang_ext('phpbb/consentmanager', 'common');
+
 		$this->reset_consent_manager_state();
 	}
 
@@ -37,8 +39,10 @@ class frontend_test extends \phpbb_functional_test_case
 		$this->assertStringContainsString('Privacy settings', $crawler->filter('#consent-manager-link')->text());
 		$this->assertSame(1, $payload['version']);
 		$this->assertSame('phpbb_consent_manager', $payload['storageKey']);
+		$this->assertSame($this->lang('CONSENTMANAGER_MEDIA_PLACEHOLDER'), $this->extract_media_placeholder_label($content));
 		$this->assertSame(array('necessary'), $payload['requiredCategories']);
 		$this->assertContains('analytics', $payload['optionalCategories']);
+		$this->assertContains('media', $payload['optionalCategories']);
 		$this->assertStringContainsString('app.php/consent/log', $payload['logEndpoint']);
 	}
 
@@ -159,6 +163,14 @@ class frontend_test extends \phpbb_functional_test_case
 		return json_decode($matches[1], true);
 	}
 
+	protected function extract_media_placeholder_label($content)
+	{
+		preg_match("/mediaPlaceholderLabel:\\s+'((?:\\\\.|[^'])*)'/", $content, $matches);
+		$this->assertNotEmpty($matches[1]);
+
+		return json_decode('"' . $matches[1] . '"');
+	}
+
 	protected function reset_consent_manager_state()
 	{
 		$this->db->sql_query('UPDATE ' . CONFIG_TABLE . "
@@ -166,6 +178,7 @@ class frontend_test extends \phpbb_functional_test_case
     		WHERE " . $this->db->sql_in_set('config_name', array(
 				'consentmanager_analytics_enabled',
 				'consentmanager_marketing_enabled',
+				'consentmanager_media_enabled',
 				'consentmanager_consent_version',
 			))
 		);

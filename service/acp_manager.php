@@ -11,8 +11,11 @@
 namespace phpbb\consentmanager\service;
 
 use phpbb\config\config;
+use phpbb\config\db_text;
 use phpbb\db\driver\driver_interface;
+use phpbb\language\language;
 use phpbb\log\log as phpbb_log;
+use phpbb\textformatter\cache_interface;
 use phpbb\user;
 
 class acp_manager
@@ -23,8 +26,20 @@ class acp_manager
 	/** @var driver_interface */
 	protected $db;
 
+	/** @var db_text */
+	protected $config_text;
+
+	/** @var language */
+	protected $language;
+
 	/** @var phpbb_log */
 	protected $log;
+
+	/** @var consent_manager_interface */
+	protected $consent_manager;
+
+	/** @var cache_interface */
+	protected $text_formatter_cache;
 
 	/** @var user */
 	protected $user;
@@ -36,18 +51,89 @@ class acp_manager
 	 * Constructor.
 	 *
 	 * @param config           $config Config service
-	 * @param driver_interface $db Database connection
-	 * @param phpbb_log        $log phpBB log service
-	 * @param user             $user Current user
-	 * @param string           $consent_logs_table Consent log table name
+	 * @param driver_interface         $db Database connection
+	 * @param db_text                  $config_text Text config service
+	 * @param language                 $language Language service
+	 * @param phpbb_log                $log phpBB log service
+	 * @param consent_manager_interface $consent_manager Consent manager service
+	 * @param cache_interface          $text_formatter_cache Text formatter cache service
+	 * @param user                     $user Current user
+	 * @param string                   $consent_logs_table Consent log table name
 	 */
-	public function __construct(config $config, driver_interface $db, phpbb_log $log, user $user, $consent_logs_table)
+	public function __construct(config $config, driver_interface $db, db_text $config_text, language $language, phpbb_log $log, consent_manager_interface $consent_manager, cache_interface $text_formatter_cache, user $user, $consent_logs_table)
 	{
 		$this->config = $config;
 		$this->db = $db;
+		$this->config_text = $config_text;
+		$this->language = $language;
 		$this->log = $log;
+		$this->consent_manager = $consent_manager;
+		$this->text_formatter_cache = $text_formatter_cache;
 		$this->user = $user;
 		$this->consent_logs_table = $consent_logs_table;
+	}
+
+	/**
+	 * Build template variables for the ACP settings page.
+	 *
+	 * @return array
+	 */
+	public function get_settings_template_data()
+	{
+		return [
+			'S_CONSENTMANAGER_ANALYTICS'	=> (bool) $this->config['consentmanager_analytics_enabled'],
+			'S_CONSENTMANAGER_MARKETING'	=> (bool) $this->config['consentmanager_marketing_enabled'],
+			'S_CONSENTMANAGER_MEDIA'		=> (bool) $this->config['consentmanager_media_enabled'],
+			'CONSENTMANAGER_INTEGRATIONS'	=> $this->get_integrations_json(),
+			'CONSENTMANAGER_VERSION'		=> (int) $this->config['consentmanager_consent_version'],
+		];
+	}
+
+	/**
+	 * Validate and persist ACP consent manager settings.
+	 *
+	 * @param array $settings Submitted settings
+	 * @param array $errors   Validation errors
+	 *
+	 * @return bool
+	 */
+	public function save_settings(array $settings, array &$errors = [])
+	{
+		$errors = [];
+		$stored_integrations = $this->normalize_integrations_json(
+			$settings['integrations'] ?? '',
+			$errors
+		);
+
+		if (!empty($errors))
+		{
+			return false;
+		}
+
+		$media_enabled = !empty($settings['media_enabled']) ? 1 : 0;
+		$media_setting_changed = (int) $this->config['consentmanager_media_enabled'] !== $media_enabled;
+
+		$this->config->set('consentmanager_analytics_enabled', !empty($settings['analytics_enabled']) ? 1 : 0);
+		$this->config->set('consentmanager_marketing_enabled', !empty($settings['marketing_enabled']) ? 1 : 0);
+		$this->config->set('consentmanager_media_enabled', $media_enabled);
+		$this->config_text->set('consentmanager_integrations', $stored_integrations);
+
+		if ($media_setting_changed)
+		{
+			$this->text_formatter_cache->invalidate();
+		}
+
+		return true;
+	}
+
+	/**
+	 * Increment the consent version to force a fresh prompt.
+	 *
+	 * @return void
+	 */
+	public function reset_consent_version()
+	{
+		$this->config->set('consentmanager_consent_version', (int) $this->config['consentmanager_consent_version'] + 1);
 	}
 
 	/**
@@ -169,6 +255,72 @@ class acp_manager
 	public function log_admin_export()
 	{
 		$this->log->add('admin', $this->user->data['user_id'], $this->user->ip, 'LOG_CONSENTMANAGER_EXPORT');
+	}
+
+	/**
+	 * Normalize integrations and encode them for config text storage.
+	 *
+	 * @param string|array $input Raw JSON or decoded integrations
+	 * @param array        $errors Validation errors
+	 *
+	 * @return string
+	 */
+	protected function normalize_integrations_json($input, array &$errors = [])
+	{
+		if (is_string($input))
+		{
+			$json = trim($input);
+			if ($json === '')
+			{
+				return '';
+			}
+
+			$this->consent_manager->normalize_integrations($json, $errors);
+			return empty($errors) ? $json : '';
+		}
+
+		$this->consent_manager->normalize_integrations($input, $errors);
+		if (!empty($errors))
+		{
+			return '';
+		}
+
+		$json = json_encode($input, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if ($json === false)
+		{
+			$errors[] = $this->language->lang('ACP_CONSENTMANAGER_INVALID_INTEGRATIONS');
+			return '';
+		}
+
+		return $json;
+	}
+
+	/**
+	 * Return the stored ACP integrations JSON formatted for textarea output.
+	 *
+	 * @return string
+	 */
+	protected function get_integrations_json()
+	{
+		$json = trim((string) $this->config_text->get('consentmanager_integrations'));
+		if ($json === '')
+		{
+			return '';
+		}
+
+		$decoded = json_decode($json, true);
+		if (json_last_error() !== JSON_ERROR_NONE)
+		{
+			return $json;
+		}
+
+		$pretty_json = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if ($pretty_json === false)
+		{
+			return $json;
+		}
+
+		return $pretty_json;
 	}
 
 	/**

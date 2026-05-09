@@ -33,6 +33,7 @@ Your extension will then appear in the consent UI, and optional scripts will sta
   - [`consentManager.openSettings()`](#consentmanageropensettings)
   - [`consentManager.getState()`](#consentmanagergetstate)
   - [`window.phpbbConsentManagerPayload`](#windowphpbbconsentmanagerpayload)
+- [Embedded `<iframe>` media patterns](#embedded-iframe-media-patterns)
 - [Examples of Consent Manager integrations](#examples-of-consent-manager-integrations)
 
 ## Strategy guide
@@ -53,13 +54,14 @@ PHP registration tells Consent Manager:
 - the description shown to the user
 - optionally, which script Consent Manager should load after consent
 
-Consent Manager has three categories:
+Consent Manager has four categories:
 
 | Category    | Purpose                                       | How it works   |
 |-------------|-----------------------------------------------|----------------|
 | `necessary` | Technically required functionality            | Always allowed |
 | `analytics` | Metrics, analytics, usage tracking            | Optional       |
 | `marketing` | Advertising, remarketing, cross-site tracking | Optional       |
+| `media`     | Embedded videos and other external media      | Optional       |
 
 If you have scripts that are necessary for the board to work, you may register them with Consent Manager as `necessary`.
 However, because the necessary scripts are always loaded, registering them is completely optional.
@@ -116,7 +118,7 @@ $accepted = $consent_manager->register(string $id, array $definition);
 ### Registration rules
 
 - Registration IDs and script IDs may only use letters, numbers, `.`, `_`, `:`, and `-`, and must start with a letter or number.
-- Supported categories are `necessary`, `analytics`, and `marketing`.
+- Supported categories are `necessary`, `analytics`, `marketing`, and `media`.
 - Each `scripts` definition must use **one** of these execution sources: `src`, `asset`, or `inline`.
 - `src` accepts `http`, `https`, or relative URLs. URLs such as `//example.com/...` are not allowed.
 - `asset` must be a local phpBB asset path such as `@vendor_example/js/file.js`.
@@ -209,6 +211,7 @@ Consent Manager assigns these template flags on board pages:
 - `S_CONSENTMANAGER_ENABLED`
 - `S_CONSENTMANAGER_ANALYTICS_ENABLED`
 - `S_CONSENTMANAGER_MARKETING_ENABLED`
+- `S_CONSENTMANAGER_MEDIA_ENABLED`
 
 Use the category flags when you need a fallback for boards where:
 
@@ -294,6 +297,7 @@ Use the correct `data-consent-category` value and template flag for your categor
 
 - Analytics: `"analytics"` and `S_CONSENTMANAGER_ANALYTICS_ENABLED`
 - Marketing: `"marketing"` and `S_CONSENTMANAGER_MARKETING_ENABLED`
+- Embedded media: `"media"` and `S_CONSENTMANAGER_MEDIA_ENABLED`
 
 What this does:
 
@@ -561,6 +565,51 @@ Unlike `ready()`, `onChange()`, `registerScript()`, and `openSettings()`, this m
 ### `window.phpbbConsentManagerPayload`
 
 Exposes Consent Manager's startup data. This is for internal use; extension integrations should use `window.consentManager` instead.
+
+## Embedded `<iframe>` media patterns
+
+For extensions or templates that render iframe-based external media **outside** phpBB's bbcode engine, only output the deferred Consent Manager wrapper when the embedded media category is enabled. Otherwise, keep rendering the normal iframe.
+
+Twig example:
+
+```twig
+{% if S_CONSENTMANAGER_MEDIA_ENABLED %}
+	<span data-consent-media-container="1" data-consent-category="media">
+		<span data-consent-media-placeholder="1"></span>
+		<span data-consent-media-content="1" hidden="hidden">
+			<iframe
+				data-consent-media-frame="1"
+				data-consent-src="https://media.example.com/embed/123"
+				width="640"
+				height="360"
+				allowfullscreen></iframe>
+		</span>
+	</span>
+{% else %}
+	<iframe
+		src="https://media.example.com/embed/123"
+		width="640"
+		height="360"
+		allowfullscreen></iframe>
+{% endif %}
+```
+
+If you generate the markup from PHP instead of Twig, apply the same rule there: emit the deferred `data-consent-*` wrapper only when Consent Manager's embedded media category is available, and keep a plain iframe fallback for every other case.
+
+How it works:
+
+- `data-consent-media-container="1"` marks the deferred embed block
+- `data-consent-category="media"` ties the block to the embedded media consent category
+- `data-consent-media-placeholder="1"` marks the blocked placeholder content
+- `data-consent-media-content="1"` wraps the real media markup
+- `data-consent-media-frame="1"` marks iframe nodes that should be activated after consent
+- `data-consent-src` stores the real iframe URL until Consent Manager moves it back to `src`
+
+Use this pattern for:
+
+- extension template files that print iframes directly
+- integrations that embed third-party widgets with raw iframes instead of bbcode
+- custom board markup where iframes were added manually, whether by editing phpBB files directly or through another extension that allows custom HTML/Twig
 
 ## Examples of Consent Manager integrations
 

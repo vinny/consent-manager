@@ -11,7 +11,6 @@
 namespace phpbb\consentmanager\controller;
 
 use phpbb\consentmanager\service\acp_manager;
-use phpbb\consentmanager\service\consent_manager_interface;
 use phpbb\language\language;
 use phpbb\request\request;
 use phpbb\template\template;
@@ -20,9 +19,6 @@ class acp_controller
 {
 	/** @var language */
 	protected $language;
-
-	/** @var consent_manager_interface */
-	protected $consent_manager;
 
 	/** @var acp_manager */
 	protected $acp_manager;
@@ -40,15 +36,13 @@ class acp_controller
 	 * Constructor.
 	 *
 	 * @param language                  $language Language service
-	 * @param consent_manager_interface $consent_manager Consent manager service
-	 * @param acp_manager               $acp_manager ACP manager service
-	 * @param request                   $request Request service
-	 * @param template                  $template Template service
+	 * @param acp_manager $acp_manager ACP manager service
+	 * @param request     $request Request service
+	 * @param template    $template Template service
 	 */
-	public function __construct(language $language, consent_manager_interface $consent_manager, acp_manager $acp_manager, request $request, template $template)
+	public function __construct(language $language, acp_manager $acp_manager, request $request, template $template)
 	{
 		$this->language = $language;
-		$this->consent_manager = $consent_manager;
 		$this->acp_manager = $acp_manager;
 		$this->request = $request;
 		$this->template = $template;
@@ -82,9 +76,10 @@ class acp_controller
 			$this->validate_form_key('phpbb_consentmanager_acp');
 
 			$errors = [];
-			$saved = $this->consent_manager->save_acp_settings([
+			$saved = $this->acp_manager->save_settings([
 				'analytics_enabled' => $this->request->variable('consentmanager_analytics_enabled', 0),
 				'marketing_enabled' => $this->request->variable('consentmanager_marketing_enabled', 0),
+				'media_enabled' => $this->request->variable('consentmanager_media_enabled', 0),
 				'integrations' => trim($this->request->raw_variable('consentmanager_integrations', '')),
 			], $errors);
 
@@ -102,7 +97,7 @@ class acp_controller
 		{
 			$this->validate_form_key('phpbb_consentmanager_acp');
 
-			$this->consent_manager->reset_consent_version();
+			$this->acp_manager->reset_consent_version();
 			$this->acp_manager->log_admin_reprompt();
 
 			trigger_error($this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS') . adm_back_link($this->u_action));
@@ -240,7 +235,7 @@ class acp_controller
 	protected function assign_template_vars(array $errors = [])
 	{
 		$this->template->assign_vars(array_merge(
-			$this->consent_manager->get_acp_template_data(),
+			$this->acp_manager->get_settings_template_data(),
 			[
 				'S_ERROR'	=> !empty($errors),
 				'ERROR_MSG'	=> implode('<br>', $errors),

@@ -16,6 +16,7 @@ Out of the box, Consent Manager supports these categories:
 - Necessary (always on)
 - Analytics (optional)
 - Marketing (optional)
+- Embedded media (optional)
 
 It also includes ACP settings for enabling categories, simple admin-managed integrations, detailed consent logging for audit and compliance purposes, and consent version resets to prompt users to review their choices when policies or integrations change.
 

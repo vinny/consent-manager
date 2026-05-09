@@ -7,6 +7,9 @@
 		const enabledCategories = payload.enabledCategories || [];
 
 		window.phpbbConsentManagerPayload = payload;
+		window.phpbbConsentManagerLang = {
+			mediaPlaceholderLabel: '{{ lang('CONSENTMANAGER_MEDIA_PLACEHOLDER')|e('js') }}'
+		};
 
 		if ((!requiredCategories.length || !enabledCategories.length) && payload.categories)
 		{

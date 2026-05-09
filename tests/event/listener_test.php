@@ -26,23 +26,70 @@ class listener_test extends \phpbb_test_case
 		$user = new \phpbb\user($this->language, '\phpbb\datetime');
 		$user->data = [
 			'user_id' => ANONYMOUS,
-			'user_form_salt' => 'listener-salt',
+			'user_form_salt' => 'listener-test-salt',
 		];
 	}
 
 	public function test_get_subscribed_events()
 	{
 		self::assertSame([
+			'core.text_formatter_s9e_configure_after' => [['configure_iframe_embeds', -10]],
+			'core.text_formatter_s9e_renderer_setup' => 'configure_iframe_renderer',
 			'core.page_header_after' => 'inject_frontend',
 		], \phpbb\consentmanager\event\listener::getSubscribedEvents());
+	}
+
+	public function test_configure_iframe_embeds_delegates_to_media_manager()
+	{
+		$configurator = new \s9e\TextFormatter\Configurator();
+
+		$media_manager = $this->createMock('\phpbb\consentmanager\service\media_manager');
+		$media_manager->expects(self::once())
+			->method('configure_iframe_embeds')
+			->with($configurator);
+
+		$listener = new \phpbb\consentmanager\event\listener(
+			$this->createMock('\phpbb\controller\helper'),
+			$this->language,
+			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
+			$this->createMock('\phpbb\template\template'),
+			$media_manager
+		);
+
+		$listener->configure_iframe_embeds(new \phpbb\event\data([
+			'configurator' => $configurator,
+		]));
+	}
+
+	public function test_configure_iframe_renderer_delegates_to_media_manager()
+	{
+		$renderer = $this->getMockBuilder('\phpbb\textformatter\s9e\renderer')
+			->disableOriginalConstructor()
+			->getMock();
+
+		$media_manager = $this->createMock('\phpbb\consentmanager\service\media_manager');
+		$media_manager->expects(self::once())
+			->method('configure_iframe_renderer')
+			->with($renderer);
+
+		$listener = new \phpbb\consentmanager\event\listener(
+			$this->createMock('\phpbb\controller\helper'),
+			$this->language,
+			$this->createMock('\phpbb\consentmanager\service\consent_manager_interface'),
+			$this->createMock('\phpbb\template\template'),
+			$media_manager
+		);
+
+		$listener->configure_iframe_renderer(new \phpbb\event\data([
+			'renderer' => $renderer,
+		]));
 	}
 
 	public function inject_frontend_assigns_template_payload_data()
 	{
 		return [
-			'front end'  => [true],
-			'in admin'   => [false],
-			'in install' => [false],
+			'front end' => [true],
+			'non front end' => [false],
 		];
 	}
 
@@ -81,10 +128,10 @@ class listener_test extends \phpbb_test_case
 					'DESCRIPTION' => 'Required cookies.',
 					'REQUIRED'    => true,
 					'services'    => [
-						0 => [
-							'LABEL'			=> 'Cookie baker',
-							'DESCRIPTION'	=> 'Delicious cookies',
-						]
+						[
+							'LABEL' => 'Cookie baker',
+							'DESCRIPTION' => 'Delicious cookies',
+						],
 					],
 				],
 			]);
@@ -105,36 +152,25 @@ class listener_test extends \phpbb_test_case
 					'DESCRIPTION' => 'Required cookies.',
 					'REQUIRED'    => true,
 					'services'    => [
-						0 => [
-							'LABEL'			=> 'Cookie baker',
-							'DESCRIPTION'	=> 'Delicious cookies',
-						]
+						[
+							'LABEL' => 'Cookie baker',
+							'DESCRIPTION' => 'Delicious cookies',
+						],
 					],
 				]],
 				['CONSENTMANAGER_CATEGORIES.CONSENTMANAGER_SERVICES', [
-					'LABEL'			=> 'Cookie baker',
-					'DESCRIPTION'	=> 'Delicious cookies',
+					'LABEL' => 'Cookie baker',
+					'DESCRIPTION' => 'Delicious cookies',
 				]]
 			);
 
-		$listener = new class(
-			$helper,
-			$this->language,
-			$consent_manager,
-			$template,
-			$invoke
-		) extends \phpbb\consentmanager\event\listener {
+		$listener = new class($helper, $this->language, $consent_manager, $template, $this->createMock('\phpbb\consentmanager\service\media_manager'), $invoke) extends \phpbb\consentmanager\event\listener {
 			/** @var bool */
 			protected $is_frontend_context;
 
-			public function __construct($helper, $language, $consent_manager, $template, $is_frontend_context)
+			public function __construct($helper, $language, $consent_manager, $template, $media_manager, $is_frontend_context)
 			{
-				parent::__construct(
-					$helper,
-					$language,
-					$consent_manager,
-					$template
-				);
+				parent::__construct($helper, $language, $consent_manager, $template, $media_manager);
 				$this->is_frontend_context = $is_frontend_context;
 			}
 
@@ -175,7 +211,8 @@ class listener_test extends \phpbb_test_case
 			$helper,
 			$this->language,
 			$consent_manager,
-			$template
+			$template,
+			$this->createMock('\phpbb\consentmanager\service\media_manager')
 		);
 
 		$listener->inject_frontend();

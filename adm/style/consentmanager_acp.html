@@ -28,6 +28,13 @@
 				<label><input type="radio" class="radio" name="consentmanager_marketing_enabled" value="0" {% if not S_CONSENTMANAGER_MARKETING %}checked="checked"{% endif %}> {{ lang('NO') }}</label>
 			</dd>
 		</dl>
+		<dl>
+			<dt><label>{{ lang('ACP_CONSENTMANAGER_MEDIA') ~ lang('COLON') }}</label><br><span>{{ lang('ACP_CONSENTMANAGER_MEDIA_EXPLAIN') }}</span></dt>
+			<dd>
+				<label><input type="radio" class="radio" name="consentmanager_media_enabled" value="1" {% if S_CONSENTMANAGER_MEDIA %}checked="checked"{% endif %}> {{ lang('YES') }}</label>
+				<label><input type="radio" class="radio" name="consentmanager_media_enabled" value="0" {% if not S_CONSENTMANAGER_MEDIA %}checked="checked"{% endif %}> {{ lang('NO') }}</label>
+			</dd>
+		</dl>
 	</fieldset>
 
 	<fieldset>
