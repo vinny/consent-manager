@@ -38,6 +38,9 @@ class acp_manager
 	/** @var consent_manager_interface */
 	protected $consent_manager;
 
+	/** @var consent_cache */
+	protected $consent_cache;
+
 	/** @var cache_interface */
 	protected $text_formatter_cache;
 
@@ -56,11 +59,12 @@ class acp_manager
 	 * @param language                 $language Language service
 	 * @param phpbb_log                $log phpBB log service
 	 * @param consent_manager_interface $consent_manager Consent manager service
-	 * @param cache_interface          $text_formatter_cache Text formatter cache service
+	 * @param consent_cache             $consent_cache Persistent cache helper
+	 * @param cache_interface           $text_formatter_cache Text formatter cache service
 	 * @param user                     $user Current user
 	 * @param string                   $consent_logs_table Consent log table name
 	 */
-	public function __construct(config $config, driver_interface $db, db_text $config_text, language $language, phpbb_log $log, consent_manager_interface $consent_manager, cache_interface $text_formatter_cache, user $user, $consent_logs_table)
+	public function __construct(config $config, driver_interface $db, db_text $config_text, language $language, phpbb_log $log, consent_manager_interface $consent_manager, consent_cache $consent_cache, cache_interface $text_formatter_cache, user $user, $consent_logs_table)
 	{
 		$this->config = $config;
 		$this->db = $db;
@@ -68,6 +72,7 @@ class acp_manager
 		$this->language = $language;
 		$this->log = $log;
 		$this->consent_manager = $consent_manager;
+		$this->consent_cache = $consent_cache;
 		$this->text_formatter_cache = $text_formatter_cache;
 		$this->user = $user;
 		$this->consent_logs_table = $consent_logs_table;
@@ -117,6 +122,7 @@ class acp_manager
 		$this->config->set('consentmanager_marketing_enabled', !empty($settings['marketing_enabled']) ? 1 : 0);
 		$this->config->set('consentmanager_media_enabled', $media_enabled);
 		$this->config_text->set('consentmanager_integrations', $stored_integrations);
+		$this->consent_cache->invalidate();
 
 		if ($media_setting_changed)
 		{

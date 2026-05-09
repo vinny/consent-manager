@@ -88,7 +88,153 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame('necessary', $categories['necessary']['id']);
 		self::assertTrue($categories['necessary']['required']);
 		self::assertTrue($categories['necessary']['enabled']);
+	}
 
+	public function test_get_categories_are_translated_after_language_is_loaded()
+	{
+		$language = new \phpbb\language\language(
+			new \phpbb\language\language_file_loader($this->phpbb_root_path, $this->php_ext)
+		);
+		$manager = $this->get_manager([], '', null, null, null, null, $language);
+
+		self::assertTrue($manager->has_optional_categories());
+
+		$language->add_lang('common', 'phpbb/consentmanager');
+		$categories = $manager->get_categories();
+
+		self::assertSame($language->lang('CONSENTMANAGER_CATEGORY_ANALYTICS'), $categories['analytics']['label']);
+		self::assertSame($language->lang('CONSENTMANAGER_CATEGORY_ANALYTICS_EXPLAIN'), $categories['analytics']['description']);
+	}
+
+	public function test_get_configured_integrations_memoizes_results_per_request()
+	{
+		$config_text = $this->createMock('\phpbb\config\db_text');
+		$config_text->expects(self::once())
+			->method('get')
+			->with('consentmanager_integrations')
+			->willReturn($this->get_submitted_integrations_json());
+
+		$manager = $this->get_manager([], '', null, $config_text);
+
+		self::assertCount(1, $manager->get_configured_integrations());
+		self::assertCount(1, $manager->get_configured_integrations());
+		self::assertArrayHasKey('board.analytics', $manager->get_services());
+	}
+
+	public function test_get_configured_integrations_uses_persistent_cache()
+	{
+		$cache_store = [];
+		$consent_cache = $this->get_consent_cache($cache_store);
+		$config_text = $this->get_config_text($this->get_submitted_integrations_json());
+
+		$this->get_manager([], '', null, $config_text, null, null, null, $consent_cache)
+			->get_configured_integrations();
+
+		$cached_manager = $this->getMockBuilder('\phpbb\consentmanager\service\consent_manager')
+			->setConstructorArgs($this->get_manager_constructor_args([], $config_text, new \phpbb_mock_event_dispatcher(), null, null, $this->language, $consent_cache))
+			->setMethods(['normalize_integrations'])
+			->getMock();
+		$cached_manager->expects(self::never())
+			->method('normalize_integrations');
+
+		self::assertCount(1, $cached_manager->get_configured_integrations());
+	}
+
+	public function test_get_configured_integrations_reloads_after_persistent_cache_invalidation()
+	{
+		$cache_store = [];
+		$consent_cache = $this->get_consent_cache($cache_store);
+		$config_text = $this->get_config_text($this->get_submitted_integrations_json());
+
+		$this->get_manager([], '', null, $config_text, null, null, null, $consent_cache)
+			->get_configured_integrations();
+
+		$consent_cache->invalidate();
+
+		$refreshed_manager = $this->getMockBuilder('\phpbb\consentmanager\service\consent_manager')
+			->setConstructorArgs($this->get_manager_constructor_args([], $config_text, new \phpbb_mock_event_dispatcher(), null, null, $this->language, $consent_cache))
+			->setMethods(['normalize_integrations'])
+			->getMock();
+		$refreshed_manager->expects(self::once())
+			->method('normalize_integrations')
+			->with($this->get_submitted_integrations_json(), self::anything())
+			->willReturn([[
+				'id' => 'board.analytics',
+				'label' => 'Board Analytics',
+				'category' => 'analytics',
+				'description' => 'Loads a simple analytics library after consent.',
+				'scripts' => [[
+					'id' => 'board.analytics',
+					'category' => 'analytics',
+					'src' => 'https://cdn.example.com/analytics.js',
+					'inline' => '',
+					'async' => true,
+					'defer' => false,
+					'attributes' => [],
+				]],
+			]]);
+
+		self::assertCount(1, $refreshed_manager->get_configured_integrations());
+	}
+
+	public function test_get_configured_integrations_cache_ignores_asset_version_changes()
+	{
+		$cache_store = [];
+		$consent_cache = $this->get_consent_cache($cache_store);
+		$config_text = $this->get_config_text($this->get_submitted_integrations_json());
+
+		$this->get_manager(['assets_version' => 42], '', null, $config_text, null, null, null, $consent_cache)
+			->get_configured_integrations();
+
+		$cached_manager = $this->getMockBuilder('\phpbb\consentmanager\service\consent_manager')
+			->setConstructorArgs($this->get_manager_constructor_args(['assets_version' => 99], $config_text, new \phpbb_mock_event_dispatcher(), null, null, $this->language, $consent_cache))
+			->setMethods(['normalize_integrations'])
+			->getMock();
+		$cached_manager->expects(self::never())
+			->method('normalize_integrations');
+
+		self::assertCount(1, $cached_manager->get_configured_integrations());
+	}
+
+	public function test_get_services_memoizes_results_after_first_collection()
+	{
+		$dispatcher = $this->get_collect_registrations_dispatcher(function ($data) {
+			$data['consent_manager']->register('vendor.memoized', array(
+				'category' => 'analytics',
+				'src' => 'https://cdn.example.com/memoized.js',
+			));
+
+			return $data;
+		});
+		$manager = $this->get_manager([], '', $dispatcher);
+
+		$services = $manager->get_services();
+
+		self::assertSame($services, $manager->get_services());
+	}
+
+	public function test_get_services_keeps_manual_registrations_after_collection()
+	{
+		$dispatcher = $this->get_collect_registrations_dispatcher(function ($data) {
+			$data['consent_manager']->register('vendor.collected', array(
+				'category' => 'analytics',
+				'src' => 'https://cdn.example.com/collected.js',
+			));
+
+			return $data;
+		});
+		$manager = $this->get_manager([], '', $dispatcher);
+
+		self::assertArrayHasKey('vendor.collected', $manager->get_services());
+
+		self::assertTrue($manager->register('vendor.manual', array(
+			'category' => 'analytics',
+			'src' => 'https://cdn.example.com/manual.js',
+		)));
+
+		$services = $manager->get_services();
+		self::assertArrayHasKey('vendor.collected', $services);
+		self::assertArrayHasKey('vendor.manual', $services);
 	}
 
 	/**
@@ -251,6 +397,67 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame('vendor.bundle.2', $service['scripts'][1]['id']);
 	}
 
+	public function test_register_renames_later_script_when_explicit_id_matches_registration_id()
+	{
+		$manager = $this->get_manager();
+
+		self::assertTrue($manager->register('vendor.bundle', array(
+			'category' => 'analytics',
+			'scripts' => array(
+				array(
+					'id' => 'vendor.bundle.loader',
+					'src' => 'https://cdn.example.com/a.js',
+				),
+				array(
+					'id' => 'vendor.bundle',
+					'inline' => 'window.testConsent = true;',
+				),
+			),
+		)));
+
+		$service = $this->get_service('vendor.bundle', $manager);
+
+		self::assertSame('vendor.bundle.loader', $service['scripts'][0]['id']);
+		self::assertSame('vendor.bundle.2', $service['scripts'][1]['id']);
+	}
+
+	public function test_register_allows_reregistering_same_registration_id()
+	{
+		$manager = $this->get_manager();
+
+		self::assertTrue($manager->register('vendor.bundle', array(
+			'category' => 'analytics',
+			'scripts' => array(
+				array(
+					'id' => 'vendor.bundle.loader',
+					'src' => 'https://cdn.example.com/original.js',
+				),
+			),
+		)));
+
+		self::assertTrue($manager->register('vendor.bundle', array(
+			'category' => 'analytics',
+			'scripts' => array(
+				array(
+					'id' => 'vendor.bundle.loader',
+					'src' => 'https://cdn.example.com/updated.js',
+				),
+				array(
+					'id' => 'vendor.bundle.settings',
+					'inline' => 'window.updatedConsent = true;',
+				),
+			),
+		)));
+
+		$service = $this->get_service('vendor.bundle', $manager);
+
+		self::assertCount(2, $service['scripts']);
+		self::assertSame('vendor.bundle.loader', $service['scripts'][0]['id']);
+		self::assertSame('https://cdn.example.com/updated.js', $service['scripts'][0]['src']);
+		self::assertSame('vendor.bundle.settings', $service['scripts'][1]['id']);
+		self::assertSame('window.updatedConsent = true;', $service['scripts'][1]['inline']);
+	}
+
 	public function test_register_skips_duplicate_script_ids()
 	{
 		$manager = $this->get_manager();
@@ -303,6 +510,95 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('ext/phpbb/consentmanager/styles/all/template/js/consentmanager.js', $script['src']);
 		self::assertStringContainsString('assets_version=42', $script['src']);
 		self::assertTrue($script['async']);
+	}
+
+	public function test_register_uses_cached_asset_urls()
+	{
+		$cache_store = [];
+		$consent_cache = $this->get_consent_cache($cache_store);
+		$first_twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
+			->disableOriginalConstructor()
+			->setMethods(array('get_phpbb_root_path', 'getNamespaceLookUpOrder', 'findTemplate'))
+			->getMock();
+		$first_twig_environment->method('get_phpbb_root_path')
+			->willReturn($this->phpbb_root_path);
+		$first_twig_environment->method('getNamespaceLookUpOrder')
+			->willReturn(['__main__']);
+		$first_twig_environment->expects(self::once())
+			->method('findTemplate')
+			->with('styles/prosilver/template/consentmanager.js')
+			->willReturn($this->phpbb_root_path . 'ext/phpbb/consentmanager/styles/all/template/js/consentmanager.js');
+
+		$first_manager = $this->get_manager([], '', null, null, $first_twig_environment, null, null, $consent_cache);
+		self::assertTrue($first_manager->register('vendor.asset.first', array(
+			'category' => 'analytics',
+			'asset' => 'styles/prosilver/template/consentmanager.js',
+		)));
+		self::assertNotSame('', $this->get_service('vendor.asset.first', $first_manager)['scripts'][0]['src']);
+
+		$second_twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
+			->disableOriginalConstructor()
+			->setMethods(array('get_phpbb_root_path', 'getNamespaceLookUpOrder', 'findTemplate'))
+			->getMock();
+		$second_twig_environment->method('get_phpbb_root_path')
+			->willReturn($this->phpbb_root_path);
+		$second_twig_environment->method('getNamespaceLookUpOrder')
+			->willReturn(['__main__']);
+		$second_twig_environment->expects(self::never())
+			->method('findTemplate');
+
+		$second_manager = $this->get_manager([], '', null, null, $second_twig_environment, null, null, $consent_cache);
+		self::assertTrue($second_manager->register('vendor.asset.second', array(
+			'category' => 'analytics',
+			'asset' => 'styles/prosilver/template/consentmanager.js',
+		)));
+		self::assertNotSame('', $this->get_service('vendor.asset.second', $second_manager)['scripts'][0]['src']);
+	}
+
+	public function test_register_does_not_cache_failed_asset_resolution()
+	{
+		$cache_store = [];
+		$consent_cache = $this->get_consent_cache($cache_store);
+
+		$failing_twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
+			->disableOriginalConstructor()
+			->setMethods(array('get_phpbb_root_path', 'getNamespaceLookUpOrder', 'findTemplate'))
+			->getMock();
+		$failing_twig_environment->method('get_phpbb_root_path')
+			->willReturn($this->phpbb_root_path);
+		$failing_twig_environment->method('getNamespaceLookUpOrder')
+			->willReturn(['__main__']);
+		$failing_twig_environment->expects(self::once())
+			->method('findTemplate')
+			->with('styles/prosilver/template/missing-consentmanager.js')
+			->willThrowException(new \Twig\Error\LoaderError('Missing template asset'));
+
+		$failing_manager = $this->get_manager([], '', null, null, $failing_twig_environment, null, null, $consent_cache);
+		self::assertTrue($failing_manager->register('vendor.asset.missing', array(
+			'category' => 'analytics',
+			'asset' => 'styles/prosilver/template/missing-consentmanager.js',
+		)));
+		self::assertCount(0, $this->get_service('vendor.asset.missing', $failing_manager)['scripts']);
+
+		$working_twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
+			->disableOriginalConstructor()
+			->setMethods(array('get_phpbb_root_path', 'getNamespaceLookUpOrder', 'findTemplate'))
+			->getMock();
+		$working_twig_environment->method('get_phpbb_root_path')
+			->willReturn($this->phpbb_root_path);
+		$working_twig_environment->method('getNamespaceLookUpOrder')
+			->willReturn(['__main__']);
+		$working_twig_environment->expects(self::once())
+			->method('findTemplate')
+			->with('styles/prosilver/template/missing-consentmanager.js')
+			->willReturn($this->phpbb_root_path . 'ext/phpbb/consentmanager/styles/all/template/js/consentmanager.js');
+
+		$working_manager = $this->get_manager([], '', null, null, $working_twig_environment, null, null, $consent_cache);
+		self::assertTrue($working_manager->register('vendor.asset.fixed', array(
+			'category' => 'analytics',
+			'asset' => 'styles/prosilver/template/missing-consentmanager.js',
+		)));
+		self::assertNotSame('', $this->get_service('vendor.asset.fixed', $working_manager)['scripts'][0]['src']);
 	}
 
 	public function test_build_frontend_payload_collects_registered_and_configured_integrations()
@@ -777,13 +1073,21 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame(array(), $this->get_service('vendor.missing-template', $manager)['scripts']);
 	}
 
-	protected function get_manager(array $config_values = array(), $stored_integrations = '', $dispatcher = null, $config_text = null, $twig_environment = null, $request = null)
+	protected function get_manager(array $config_values = array(), $stored_integrations = '', $dispatcher = null, $config_text = null, $twig_environment = null, $request = null, $language = null, $consent_cache = null)
 	{
-		if ($config_text === null)
-		{
-			$config_text = $this->get_config_text($stored_integrations);
-		}
+		return new \phpbb\consentmanager\service\consent_manager(...$this->get_manager_constructor_args(
+			$config_values,
+			$config_text ?: $this->get_config_text($stored_integrations),
+			$dispatcher,
+			$twig_environment,
+			$request,
+			$language,
+			$consent_cache
+		));
+	}
 
+	protected function get_manager_constructor_args(array $config_values = array(), $config_text = null, $dispatcher = null, $twig_environment = null, $request = null, $language = null, $consent_cache = null)
+	{
 		if ($dispatcher === null)
 		{
 			$dispatcher = new \phpbb_mock_event_dispatcher();
@@ -802,10 +1106,12 @@ class consent_manager_test extends \phpbb_test_case
 		{
 			$twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
 				->disableOriginalConstructor()
-				->setMethods(array('get_phpbb_root_path', 'findTemplate'))
+				->setMethods(array('get_phpbb_root_path', 'getNamespaceLookUpOrder', 'findTemplate'))
 				->getMock();
 			$twig_environment->method('get_phpbb_root_path')
 				->willReturn($this->phpbb_root_path);
+			$twig_environment->method('getNamespaceLookUpOrder')
+				->willReturn(['__main__']);
 		}
 
 		if ($request === null)
@@ -813,16 +1119,28 @@ class consent_manager_test extends \phpbb_test_case
 			$request = $this->get_cookie_request('');
 		}
 
-		return new \phpbb\consentmanager\service\consent_manager(
+		if ($language === null)
+		{
+			$language = $this->language;
+		}
+
+		if ($consent_cache === null)
+		{
+			$cache_store = [];
+			$consent_cache = $this->get_consent_cache($cache_store);
+		}
+
+		return [
+			$consent_cache,
 			$config,
 			$config_text,
-			$this->language,
+			$language,
 			$dispatcher,
 			$twig_environment,
 			$this->path_helper,
 			$this->filesystem,
-			$request
-		);
+			$request,
+		];
 	}
 
 	protected function get_config_text($stored_integrations = '')
@@ -850,6 +1168,36 @@ class consent_manager_test extends \phpbb_test_case
 			});
 
 		return $request;
+	}
+
+	protected function get_consent_cache(array &$cache_store = [])
+	{
+		return new \phpbb\consentmanager\service\consent_cache($this->get_cache_service($cache_store));
+	}
+
+	protected function get_cache_service(array &$cache_store = [])
+	{
+		$cache = $this->getMockBuilder('\phpbb\cache\service')
+			->disableOriginalConstructor()
+			->setMethods(['get', 'put', 'destroy'])
+			->getMock();
+
+		$cache->method('get')
+			->willReturnCallback(function ($key) use (&$cache_store) {
+				return array_key_exists($key, $cache_store) ? $cache_store[$key] : false;
+			});
+		$cache->method('put')
+			->willReturnCallback(function ($key, $value) use (&$cache_store) {
+				$cache_store[$key] = $value;
+				return true;
+			});
+		$cache->method('destroy')
+			->willReturnCallback(function ($key) use (&$cache_store) {
+				unset($cache_store[$key]);
+				return true;
+			});
+
+		return $cache;
 	}
 
 	protected function get_service($id, \phpbb\consentmanager\service\consent_manager $manager)

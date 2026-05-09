@@ -185,11 +185,15 @@ class acp_manager_test extends \phpbb_database_test_case
 			->method('normalize_integrations')
 			->with(trim($this->get_pretty_integrations_json()), self::anything());
 
+		$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
+		$consent_cache->expects(self::once())
+			->method('invalidate');
+
 		$text_formatter_cache = $this->createMock('\phpbb\textformatter\cache_interface');
 		$text_formatter_cache->expects(self::never())
 			->method('invalidate');
 
-		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $text_formatter_cache);
+		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $consent_cache, $text_formatter_cache);
 		$errors = [];
 
 		self::assertTrue($manager->save_settings([
@@ -216,11 +220,15 @@ class acp_manager_test extends \phpbb_database_test_case
 		$consent_manager->expects(self::never())
 			->method('normalize_integrations');
 
+		$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
+		$consent_cache->expects(self::once())
+			->method('invalidate');
+
 		$text_formatter_cache = $this->createMock('\phpbb\textformatter\cache_interface');
 		$text_formatter_cache->expects(self::once())
 			->method('invalidate');
 
-		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $text_formatter_cache, [
+		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $consent_cache, $text_formatter_cache, [
 			'consentmanager_media_enabled' => 1,
 		]);
 
@@ -243,11 +251,15 @@ class acp_manager_test extends \phpbb_database_test_case
 		$consent_manager->expects(self::never())
 			->method('normalize_integrations');
 
+		$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
+		$consent_cache->expects(self::once())
+			->method('invalidate');
+
 		$text_formatter_cache = $this->createMock('\phpbb\textformatter\cache_interface');
 		$text_formatter_cache->expects(self::never())
 			->method('invalidate');
 
-		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $text_formatter_cache, [
+		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager, $consent_cache, $text_formatter_cache, [
 			'consentmanager_media_enabled' => 1,
 		]);
 
@@ -385,7 +397,7 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_reset_consent_version_increments_config_value()
 	{
-		$manager = $this->create_manager(1, 'session', null, null, null, null, [
+		$manager = $this->create_manager(1, 'session', null, null, null, null, null, [
 			'consentmanager_consent_version' => 7,
 		]);
 		$manager->reset_consent_version();
@@ -589,7 +601,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		self::assertSame(86399, $end - $start); // 23h 59m 59s difference
 	}
 
-	protected function create_manager($user_id, $session_id, $log = null, $config_text = null, $consent_manager = null, $text_formatter_cache = null, array $config_values = [])
+	protected function create_manager($user_id, $session_id, $log = null, $config_text = null, $consent_manager = null, $consent_cache = null, $text_formatter_cache = null, array $config_values = [])
 	{
 		$config = new \phpbb\config\config(array_merge(array(
 			'rand_seed' => 'random-seed',
@@ -626,6 +638,11 @@ class acp_manager_test extends \phpbb_database_test_case
 			$text_formatter_cache = $this->createMock('\phpbb\textformatter\cache_interface');
 		}
 
+		if ($consent_cache === null)
+		{
+			$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
+		}
+
 		$user = new \phpbb\user($this->language, '\phpbb\datetime');
 		$user->data = array(
 			'user_id' => $user_id,
@@ -640,6 +657,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			$this->language,
 			$log,
 			$consent_manager,
+			$consent_cache,
 			$text_formatter_cache,
 			$user,
 			'phpbb_consentmanager_logs'

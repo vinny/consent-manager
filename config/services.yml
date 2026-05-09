@@ -2,9 +2,15 @@ imports:
     - { resource: tables.yml }
 
 services:
+    phpbb.consentmanager.cache:
+        class: phpbb\consentmanager\service\consent_cache
+        arguments:
+            - '@cache'
+
     phpbb.consentmanager.service:
         class: phpbb\consentmanager\service\consent_manager
         arguments:
+            - '@phpbb.consentmanager.cache'
             - '@config'
             - '@config_text'
             - '@language'
@@ -31,6 +37,7 @@ services:
             - '@language'
             - '@log'
             - '@phpbb.consentmanager.service'
+            - '@phpbb.consentmanager.cache'
             - '@text_formatter.cache'
             - '@user'
             - '%tables.phpbb.consentmanager.consent_logs%'
