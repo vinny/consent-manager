@@ -198,6 +198,12 @@ class consent_manager_test extends \phpbb_test_case
 
 	public function test_get_services_memoizes_results_after_first_collection()
 	{
+		$config_text = $this->createMock('\phpbb\config\db_text');
+		$config_text->expects(self::once())
+			->method('get')
+			->with('consentmanager_integrations')
+			->willReturn('');
+
 		$dispatcher = $this->get_collect_registrations_dispatcher(function ($data) {
 			$data['consent_manager']->register('vendor.memoized', array(
 				'category' => 'analytics',
@@ -206,11 +212,10 @@ class consent_manager_test extends \phpbb_test_case
 
 			return $data;
 		});
-		$manager = $this->get_manager([], '', $dispatcher);
+		$manager = $this->get_manager([], '', $dispatcher, $config_text);
 
-		$services = $manager->get_services();
-
-		self::assertSame($services, $manager->get_services());
+		self::assertArrayHasKey('vendor.memoized', $manager->get_services());
+		self::assertArrayHasKey('vendor.memoized', $manager->get_services());
 	}
 
 	public function test_get_services_keeps_manual_registrations_after_collection()
@@ -584,7 +589,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertNotSame('', $this->get_service('vendor.asset.second', $second_manager)['scripts'][0]['src']);
 	}
 
-	public function test_register_does_not_cache_failed_asset_resolution()
+	public function test_register_does_not_persist_failed_asset_resolution_across_requests()
 	{
 		$failing_twig_environment = $this->getMockBuilder('\phpbb\template\twig\environment')
 			->disableOriginalConstructor()
