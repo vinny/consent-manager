@@ -14,7 +14,7 @@
 	],
 	"require": {
 		"php": ">=7.2",
-		"composer/installers": "~1.0",
+		"composer/installers": "^1.0 || ^2.0",
 		"ext-dom": "*"
 	},
 	"require-dev": {
@@ -23,7 +23,7 @@
 	"extra": {
 		"display-name": "Consent Manager",
 		"soft-require": {
-			"phpbb/phpbb": ">=3.3.0,<4.0.0@dev"
+			"phpbb/phpbb": ">=3.3.0"
 		}
 	}
 }
