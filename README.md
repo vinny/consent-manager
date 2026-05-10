@@ -4,6 +4,7 @@
 
 [![Build Status](https://github.com/phpbb-extensions/consent-manager/actions/workflows/tests.yml/badge.svg)](https://github.com/phpbb-extensions/consent-manager/actions)
 [![codecov](https://codecov.io/gh/phpbb-extensions/consent-manager/graph/badge.svg?token=IE2YWG6N9V)](https://codecov.io/gh/phpbb-extensions/consent-manager)
+![Stability](https://img.shields.io/badge/stability-dev-orange?logo=phpBB&logoColor=white)
 
 Consent Manager is a GDPR-ready privacy/cookie consent management solution built for phpBB forums.
 
@@ -22,7 +23,7 @@ It also includes ACP settings for enabling categories, simple admin-managed inte
 
 ## For extension authors
 
-If your extension adds analytics, advertising, or other tracking or cookie-related JavaScript, you’ll want to integrate it with Consent Manager so those scripts only run after user consent.
+If your extension adds analytics, advertising, or other tracking or cookie-related JavaScript, you’ll want to integrate it with Consent Manager so those scripts only run after user consent is granted.
 
 See the [Developer Documentation](DOCUMENTATION.md) for a complete guide.
 

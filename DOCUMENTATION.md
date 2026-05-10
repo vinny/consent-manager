@@ -44,6 +44,7 @@ Your extension will then appear in the consent UI, and optional scripts will sta
 | Your extension prints `<script>` tags directly in HTML template files                                                                                      | Do **basic PHP registration**, and turn the `<script>` tag into a deferred placeholder with `type="text/plain"` and `data-consent-category` ([Pattern 2](#pattern-2-a-script-your-extension-already-prints-with-a-script-tag)) |
 | Your JavaScript file contains both necessary logic and optional data tracking logic                                                                        | Do **basic PHP registration**, keep loading the file normally, and gate only the optional part with the **JavaScript API** ([Pattern 3](#pattern-3-a-script-contains-both-necessary-and-optional-code))                        |
 | You want Consent Manager to load a remote script from a CDN or third-party site, and your extension does **not** print or include that script tag anywhere | Do **PHP registration with `src`** ([Pattern 4](#pattern-4-remote-script-not-already-loaded-by-your-extension))                                                                                                                |
+| You have embedded external content using `<iframe>` tags                                                                                                   | Do **basic PHP registration**, and turn the `<iframe>` tag into a deferred placeholder ([`<iframe>` Pattern](#embedded-iframe-media-patterns))                                                                                 |
 
 ## PHP registration
 
@@ -147,7 +148,7 @@ $consent_manager->register('vendor.example.pixel', [
 ]);
 ```
 
-You can also register only the display information:
+**Basic PHP registration**: register only the display information:
 
 ```php
 $consent_manager->register('vendor.example.inline', [
@@ -483,7 +484,7 @@ window.consentManager.ready(function (cm) {
 
 The state object is either `null` or:
 
-```js
+```json5
 {
 	categories: ['necessary', 'analytics'],
 	timestamp: '2026-04-21T20:00:00.000Z',
