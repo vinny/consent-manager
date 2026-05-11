@@ -420,7 +420,7 @@ class acp_manager_test extends \phpbb_database_test_case
 	{
 		$manager = $this->create_manager(1, 'session');
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$manager->stream_logs_csv($handle);
 		rewind($handle);
 		$content = stream_get_contents($handle);
@@ -437,7 +437,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager_b = $this->create_log_manager(20, 'session-b');
 		$log_manager_b->log_consent(array('necessary'), 2);
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
@@ -453,7 +453,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager->log_consent(array('necessary', 'analytics'), 2);
 		$log_manager->log_consent(array('necessary'), 1);
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, array('consent_version' => 1));
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
@@ -479,7 +479,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			(\'' . $db->sql_escape('hash-new') . '\', 1, \'["necessary","analytics"]\', ' . $now . ')');
 		$db->sql_close();
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, array(
 			'date_from' => $now - 3600, // 1 hour ago
 			'date_to'   => $now + 3600,
@@ -502,7 +502,7 @@ class acp_manager_test extends \phpbb_database_test_case
 
 		$reader = $this->create_manager(1, 'session');
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$reader->stream_logs_csv($handle, array('user_id' => 42));
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
@@ -519,7 +519,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager = $this->create_log_manager(5, 'session');
 		$log_manager->log_consent(array('necessary', 'analytics'), 3);
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$content = stream_get_contents($handle);
@@ -550,7 +550,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			$log_manager->log_consent(array('necessary'), 1);
 		}
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		// Use a batch size of 2 to exercise the pagination loop
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, [], 2);
 		rewind($handle);
@@ -569,7 +569,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			VALUES (\'hash-x\', 1, \'["=DANGEROUS()"]\', ' . time() . ')');
 		$db->sql_close();
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$row = str_getcsv(trim(stream_get_contents($handle)));

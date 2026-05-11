@@ -210,7 +210,7 @@ class acp_controller
 		header('Pragma: no-cache');
 		header('Expires: 0');
 
-		$handle = fopen('php://output', 'w');
+		$handle = fopen('php://output', 'wb');
 		fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel compatibility
 		fputcsv($handle, ['anonymized_id', 'timestamp', 'consent_version', 'categories']);
 		$this->acp_manager->stream_logs_csv($handle, $filters);
