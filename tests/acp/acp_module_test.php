@@ -133,10 +133,11 @@ class acp_module_test extends \phpbb_test_case
 
 	protected function expect_controller_method($method)
 	{
+		$args = ['phpbb.consentmanager.controller.acp'];
 		$this->container
 			->expects(self::once())
 			->method('get')
-			->with('phpbb.consentmanager.controller.acp')
+			->with(...$args)
 			->willReturn($this->acp_controller);
 
 		$this->acp_controller

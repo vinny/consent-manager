@@ -127,7 +127,22 @@ function setupConsentManager(options) {
 		send(body) {
 			this.body = body;
 			requests.push(this);
+
+			if (typeof this.onloadend === 'function') {
+				this.onloadend();
+			}
 		}
+	};
+
+	window.navigator.sendBeacon = function(url, body) {
+		requests.push({
+			transport: 'beacon',
+			method: 'POST',
+			url,
+			body
+		});
+
+		return true;
 	};
 
 	if (settings.queue) {
@@ -227,6 +242,25 @@ test('accept-all persists consent, logs the decision, and updates the UI state',
 		version: payload.version,
 		categories: ['necessary', 'analytics', 'marketing', 'media']
 	});
+});
+
+test('reject-all logs the updated decision before reloading when consent is revoked', () => {
+	const { window, payload, requests, jsdomErrors } = setupConsentManager({
+		localState: createState(['necessary', 'analytics', 'marketing', 'media'], '2026-04-28T00:00:00.000Z')
+	});
+
+	click(window, '[data-consent-action="reject-all"]');
+
+	expect(requests).toHaveLength(1);
+	expect(requests[0].transport).toBe('beacon');
+	expect(requests[0].url).toBe(payload.logEndpoint);
+	expect(JSON.parse(requests[0].body)).toEqual({
+		hash: payload.logHash,
+		version: payload.version,
+		categories: ['necessary']
+	});
+	expect(jsdomErrors).toHaveLength(1);
+	expect(jsdomErrors[0].message).toContain('Not implemented: navigation');
 });
 
 test('registerScript blocks unsafe sources and executes safe inline scripts', () => {
@@ -400,8 +434,8 @@ test('saving consent activates deferred embeds when the media content element is
 });
 
 test('revoking only media consent reloads the page', () => {
-	const { window, document, jsdomErrors } = setupConsentManager({
-		localState: createState(['necessary', 'media'], '2026-04-28T00:00:00.000Z')
+	const { window, document, payload, requests, jsdomErrors } = setupConsentManager({
+		localState: createState(['necessary', 'analytics', 'marketing', 'media'], '2026-04-28T00:00:00.000Z')
 	});
 	const analyticsCheckbox = document.querySelector('[data-consent-toggle="analytics"]');
 	const marketingCheckbox = document.querySelector('[data-consent-toggle="marketing"]');
@@ -413,6 +447,14 @@ test('revoking only media consent reloads the page', () => {
 
 	click(window, '[data-consent-action="save-settings"]');
 
+	expect(requests).toHaveLength(1);
+	expect(requests[0].transport).toBe('beacon');
+	expect(requests[0].url).toBe(payload.logEndpoint);
+	expect(JSON.parse(requests[0].body)).toEqual({
+		hash: payload.logHash,
+		version: payload.version,
+		categories: ['necessary']
+	});
 	expect(jsdomErrors).toHaveLength(1);
 	expect(jsdomErrors[0].message).toContain('Not implemented: navigation');
 });

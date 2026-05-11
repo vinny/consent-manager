@@ -43,13 +43,14 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_log_admin_settings_updated_delegates_to_phpbb_log()
 	{
+		$log_args = ['admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_UPDATED'];
 		$log = $this->getMockBuilder('\phpbb\log\log')
 			->disableOriginalConstructor()
 			->setMethods(array('add'))
 			->getMock();
 		$log->expects(self::once())
 			->method('add')
-			->with('admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_UPDATED');
+			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
 		$manager->log_admin_settings_updated();
@@ -57,13 +58,14 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_log_admin_reprompt_delegates_to_phpbb_log()
 	{
+		$log_args = ['admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_REPROMPT'];
 		$log = $this->getMockBuilder('\phpbb\log\log')
 			->disableOriginalConstructor()
 			->setMethods(array('add'))
 			->getMock();
 		$log->expects(self::once())
 			->method('add')
-			->with('admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_REPROMPT');
+			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
 		$manager->log_admin_reprompt();
@@ -71,13 +73,14 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_log_admin_export_delegates_to_phpbb_log()
 	{
+		$log_args = ['admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_EXPORT'];
 		$log = $this->getMockBuilder('\phpbb\log\log')
 			->disableOriginalConstructor()
 			->setMethods(array('add'))
 			->getMock();
 		$log->expects(self::once())
 			->method('add')
-			->with('admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_EXPORT');
+			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
 		$manager->log_admin_export();
@@ -128,10 +131,11 @@ class acp_manager_test extends \phpbb_database_test_case
 	{
 		$submitted_json = "\n" . $this->get_pretty_integrations_json() . "\n";
 		$trimmed_json = trim($submitted_json);
+		$normalize_args = [$trimmed_json, self::anything()];
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::once())
 			->method('normalize_integrations')
-			->with($trimmed_json, self::anything());
+			->with(...$normalize_args);
 
 		$manager = $this->create_manager(1, 'session', null, null, $consent_manager);
 		$errors = [];
@@ -161,10 +165,11 @@ class acp_manager_test extends \phpbb_database_test_case
 			'label' => "\xB1\x31",
 			'src' => 'https://cdn.example.com/analytics.js',
 		]];
+		$normalize_args = [$integrations, self::anything()];
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::once())
 			->method('normalize_integrations')
-			->with($integrations, self::anything());
+			->with(...$normalize_args);
 
 		$manager = $this->create_manager(1, 'session', null, null, $consent_manager);
 		$errors = [];
@@ -175,15 +180,17 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_save_settings_updates_flags_and_integrations()
 	{
+		$config_set_args = ['consentmanager_integrations', trim($this->get_pretty_integrations_json())];
 		$config_text = $this->createMock('\phpbb\config\db_text');
 		$config_text->expects(self::once())
 			->method('set')
-			->with('consentmanager_integrations', trim($this->get_pretty_integrations_json()));
+			->with(...$config_set_args);
 
+		$normalize_args = [trim($this->get_pretty_integrations_json()), self::anything()];
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::once())
 			->method('normalize_integrations')
-			->with(trim($this->get_pretty_integrations_json()), self::anything());
+			->with(...$normalize_args);
 
 		$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
 		$consent_cache->expects(self::once())
@@ -211,10 +218,11 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_save_settings_invalidates_text_formatter_cache_when_media_setting_changes()
 	{
+		$config_set_args = ['consentmanager_integrations', ''];
 		$config_text = $this->createMock('\phpbb\config\db_text');
 		$config_text->expects(self::once())
 			->method('set')
-			->with('consentmanager_integrations', '');
+			->with(...$config_set_args);
 
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::never())
@@ -242,10 +250,11 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_save_settings_does_not_invalidate_text_formatter_cache_when_media_setting_is_unchanged()
 	{
+		$config_set_args = ['consentmanager_integrations', ''];
 		$config_text = $this->createMock('\phpbb\config\db_text');
 		$config_text->expects(self::once())
 			->method('set')
-			->with('consentmanager_integrations', '');
+			->with(...$config_set_args);
 
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::never())
@@ -285,17 +294,19 @@ class acp_manager_test extends \phpbb_database_test_case
 		];
 
 		$config_text = $this->createMock('\phpbb\config\db_text');
+		$config_set_args = [
+			'consentmanager_integrations',
+			json_encode($integrations, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+		];
 		$config_text->expects(self::once())
 			->method('set')
-			->with(
-				'consentmanager_integrations',
-				json_encode($integrations, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
-			);
+			->with(...$config_set_args);
 
+		$normalize_args = [$integrations, self::anything()];
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::once())
 			->method('normalize_integrations')
-			->with($integrations, self::anything());
+			->with(...$normalize_args);
 
 		$manager = $this->create_manager(1, 'session', null, $config_text, $consent_manager);
 		$errors = [];
@@ -409,8 +420,8 @@ class acp_manager_test extends \phpbb_database_test_case
 	{
 		$manager = $this->create_manager(1, 'session');
 
-		$handle = fopen('php://memory', 'w+');
-		$manager->stream_logs_csv($handle, []);
+		$handle = fopen('php://memory', 'wb+');
+		$manager->stream_logs_csv($handle);
 		rewind($handle);
 		$content = stream_get_contents($handle);
 		fclose($handle);
@@ -426,8 +437,8 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager_b = $this->create_log_manager(20, 'session-b');
 		$log_manager_b->log_consent(array('necessary'), 2);
 
-		$handle = fopen('php://memory', 'w+');
-		$this->create_manager(1, 'session')->stream_logs_csv($handle, []);
+		$handle = fopen('php://memory', 'wb+');
+		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
 		fclose($handle);
@@ -442,7 +453,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager->log_consent(array('necessary', 'analytics'), 2);
 		$log_manager->log_consent(array('necessary'), 1);
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, array('consent_version' => 1));
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
@@ -468,7 +479,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			(\'' . $db->sql_escape('hash-new') . '\', 1, \'["necessary","analytics"]\', ' . $now . ')');
 		$db->sql_close();
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, array(
 			'date_from' => $now - 3600, // 1 hour ago
 			'date_to'   => $now + 3600,
@@ -491,7 +502,7 @@ class acp_manager_test extends \phpbb_database_test_case
 
 		$reader = $this->create_manager(1, 'session');
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		$reader->stream_logs_csv($handle, array('user_id' => 42));
 		rewind($handle);
 		$rows = array_filter(explode("\n", stream_get_contents($handle)));
@@ -508,8 +519,8 @@ class acp_manager_test extends \phpbb_database_test_case
 		$log_manager = $this->create_log_manager(5, 'session');
 		$log_manager->log_consent(array('necessary', 'analytics'), 3);
 
-		$handle = fopen('php://memory', 'w+');
-		$this->create_manager(1, 'session')->stream_logs_csv($handle, []);
+		$handle = fopen('php://memory', 'wb+');
+		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$content = stream_get_contents($handle);
 		fclose($handle);
@@ -539,7 +550,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			$log_manager->log_consent(array('necessary'), 1);
 		}
 
-		$handle = fopen('php://memory', 'w+');
+		$handle = fopen('php://memory', 'wb+');
 		// Use a batch size of 2 to exercise the pagination loop
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, [], 2);
 		rewind($handle);
@@ -558,13 +569,13 @@ class acp_manager_test extends \phpbb_database_test_case
 			VALUES (\'hash-x\', 1, \'["=DANGEROUS()"]\', ' . time() . ')');
 		$db->sql_close();
 
-		$handle = fopen('php://memory', 'w+');
-		$this->create_manager(1, 'session')->stream_logs_csv($handle, []);
+		$handle = fopen('php://memory', 'wb+');
+		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
 		$row = str_getcsv(trim(stream_get_contents($handle)));
 		fclose($handle);
 
-		// categories cell must be prefixed with a tab to defuse the formula
+		// category cell must be prefixed with a tab to defuse the formula
 		self::assertStringStartsWith("\t", $row[3]);
 		self::assertStringContainsString('=DANGEROUS()', $row[3]);
 	}

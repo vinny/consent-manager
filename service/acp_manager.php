@@ -221,7 +221,7 @@ class acp_manager
 	 * Mirrors the HMAC used in log_manager::log_consent() so that admins can
 	 * filter exports by user ID without exposing raw identifiers.
 	 *
-	 * Note: only matches rows hashed with the current config[rand_seed]. Records
+	 * Note: it only matches rows hashed with the current config[rand_seed]. Records
 	 * logged before a rand_seed rotation will not be found.
 	 *
 	 * @param int $user_id Numeric phpBB user ID (must be > 0)

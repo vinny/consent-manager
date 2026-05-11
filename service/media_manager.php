@@ -86,7 +86,7 @@ class media_manager
 	}
 
 	/**
-	 * Rewrite an s9e template so iframe src attributes are deferred until consent is granted.
+	 * Rewrite the s9e template so iframe src attributes are deferred until consent is granted.
 	 *
 	 * @param string $template Original s9e template
 	 *
@@ -234,6 +234,8 @@ class media_manager
 	 * @param \DOMDocument $dom        Template DOM
 	 * @param \DOMElement  $media_root Top-level media subtree
 	 *
+	 * @noinspection PhpUnhandledExceptionInspection,PhpDocMissingThrowsInspection
+	 *
 	 * @return void
 	 */
 	protected function wrap_media_root(\DOMDocument $dom, \DOMElement $media_root)
@@ -242,8 +244,8 @@ class media_manager
 		$container->setAttribute('data-consent-media-container', '1');
 		$container->setAttribute('data-consent-category', self::MEDIA_CATEGORY);
 
-		$placeholder = $dom->createDocumentFragment();
-		$placeholder->appendXML($this->get_media_placeholder_markup());
+		$placeholder = $dom->createElement('span');
+		$placeholder->setAttribute('data-consent-media-placeholder', '1');
 
 		$media_root->setAttribute('data-consent-media-content', '1');
 		$media_root->setAttribute('hidden', 'hidden');
@@ -301,15 +303,5 @@ class media_manager
 				$element->removeAttribute($attribute_name);
 			}
 		}
-	}
-
-	/**
-	 * Return the XSL markup used for blocked media placeholders.
-	 *
-	 * @return string
-	 */
-	protected function get_media_placeholder_markup()
-	{
-		return '<span data-consent-media-placeholder="1"></span>';
 	}
 }

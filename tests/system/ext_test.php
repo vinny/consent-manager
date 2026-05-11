@@ -62,8 +62,9 @@ class ext_test extends \phpbb_test_case
 			->disableOriginalConstructor()
 			->setMethods(['get_extension_path'])
 			->getMock();
+		$extension_manager_args = ['phpbb/consentmanager', true];
 		$extension_manager->method('get_extension_path')
-			->with('phpbb/consentmanager', true)
+			->with(...$extension_manager_args)
 			->willReturn($phpbb_root_path . 'ext/phpbb/consentmanager/');
 		$lang_loader->set_extension_manager($extension_manager);
 
@@ -71,9 +72,10 @@ class ext_test extends \phpbb_test_case
 
 		$language->add_lang('install', 'phpbb/consentmanager');
 
+		$args = ['language'];
 		$this->container->expects(self::once())
 			->method('get')
-			->with('language')
+			->with(...$args)
 			->willReturn($language);
 
 		$ext = new class(

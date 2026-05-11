@@ -380,11 +380,70 @@
 		const request = new XMLHttpRequest();
 		request.open('POST', payload.logEndpoint, true);
 		request.setRequestHeader('Content-Type', 'application/json');
-		request.send(JSON.stringify({
+		request.send(buildLogDecisionBody());
+	}
+
+	function buildLogDecisionBody()
+	{
+		return JSON.stringify({
 			hash: payload.logHash,
 			version: payload.version,
 			categories: state.categories
-		}));
+		});
+	}
+
+	function logDecisionBeforeReload(onComplete)
+	{
+		if (!payload.logEndpoint || !state)
+		{
+			onComplete();
+			return;
+		}
+
+		const body = buildLogDecisionBody();
+
+		if (window.navigator && typeof window.navigator.sendBeacon === 'function')
+		{
+			try
+			{
+				if (window.navigator.sendBeacon(payload.logEndpoint, body))
+				{
+					onComplete();
+					return;
+				}
+			}
+			catch (error)
+			{
+			}
+		}
+
+		const request = new XMLHttpRequest();
+		let completed = false;
+		const finish = function() {
+			if (completed)
+			{
+				return;
+			}
+
+			completed = true;
+			onComplete();
+		};
+
+		request.open('POST', payload.logEndpoint, true);
+		request.setRequestHeader('Content-Type', 'application/json');
+		request.onloadend = finish;
+		request.onerror = finish;
+
+		window.setTimeout(finish, 1000);
+
+		try
+		{
+			request.send(body);
+		}
+		catch (error)
+		{
+			finish();
+		}
 	}
 
 	function setState(categories)
@@ -410,13 +469,17 @@
 		processRegisteredScripts();
 		processDeferredNodes(document);
 		processDeferredEmbeds(document);
-		logDecision();
 		emitChange();
 
 		if (reloadRequired)
 		{
-			window.location.reload();
+			logDecisionBeforeReload(function() {
+				window.location.reload();
+			});
+			return;
 		}
+
+		logDecision();
 	}
 
 	function isSafeScriptSource(src)

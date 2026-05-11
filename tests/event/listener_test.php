@@ -43,10 +43,12 @@ class listener_test extends \phpbb_test_case
 	{
 		$configurator = new \s9e\TextFormatter\Configurator();
 
+		$args = [$configurator];
+
 		$media_manager = $this->createMock('\phpbb\consentmanager\service\media_manager');
 		$media_manager->expects(self::once())
 			->method('configure_iframe_embeds')
-			->with($configurator);
+			->with(...$args);
 
 		$listener = new \phpbb\consentmanager\event\listener(
 			$this->createMock('\phpbb\controller\helper'),
@@ -67,10 +69,12 @@ class listener_test extends \phpbb_test_case
 			->disableOriginalConstructor()
 			->getMock();
 
+		$args = [$renderer];
+
 		$media_manager = $this->createMock('\phpbb\consentmanager\service\media_manager');
 		$media_manager->expects(self::once())
 			->method('configure_iframe_renderer')
-			->with($renderer);
+			->with(...$args);
 
 		$listener = new \phpbb\consentmanager\event\listener(
 			$this->createMock('\phpbb\controller\helper'),
@@ -99,22 +103,25 @@ class listener_test extends \phpbb_test_case
 	public function test_inject_frontend_assigns_template_payload($invoke)
 	{
 		$helper = $this->createMock('\phpbb\controller\helper');
+		$helper_args = ['phpbb_consentmanager_log_controller'];
 		$helper->expects($invoke ? self::once() : self::never())
 			->method('route')
-			->with('phpbb_consentmanager_log_controller')
+			->with(...$helper_args)
 			->willReturn('/app.php/consent/log');
 
+		$language_args = ['common', 'phpbb/consentmanager'];
 		$this->language->expects($invoke ? self::once() : self::never())
 			->method('add_lang')
-			->with('common', 'phpbb/consentmanager');
+			->with(...$language_args);
 
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects($invoke ? self::once() : self::never())
 			->method('has_optional_categories')
 			->willReturn(true);
+		$consent_manager_args = ['/app.php/consent/log', generate_link_hash('phpbb.consentmanager.log')];
 		$consent_manager->expects($invoke ? self::once() : self::never())
 			->method('get_frontend_template_data')
-			->with('/app.php/consent/log', generate_link_hash('phpbb.consentmanager.log'))
+			->with(...$consent_manager_args)
 			->willReturn([
 				'S_CONSENTMANAGER_ENABLED' => true,
 				'CONSENTMANAGER_PAYLOAD' => '{"version":1}',

@@ -65,10 +65,11 @@ class log_controller_test extends \phpbb_test_case
 
 	public function test_log_persists_valid_submission()
 	{
+		$arguments = [['necessary', 'analytics'], 5];
 		$log_manager = $this->createMock('\phpbb\consentmanager\service\log_manager');
 		$log_manager->expects(self::once())
 			->method('log_consent')
-			->with(array('necessary', 'analytics'), 5);
+			->with(...$arguments);
 
 		$consent_manager = $this->createMock('\phpbb\consentmanager\service\consent_manager_interface');
 		$consent_manager->expects(self::once())

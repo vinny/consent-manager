@@ -115,14 +115,17 @@ class acp_controller_test extends \phpbb_test_case
 			->method('get_settings_template_data')
 			->willReturn(['CONSENTMANAGER_VERSION' => 3]);
 		$this->acp_manager->expects(self::never())->method('log_admin_settings_updated');
+
+		$args = [self::callback(static function ($vars) {
+			return $vars['S_ERROR']
+				&& $vars['ERROR_MSG'] === 'Invalid integrations'
+				&& $vars['U_ACTION'] === 'adm.php?i=test'
+				&& isset($vars['CONSENTMANAGER_VERSION']);
+		})];
+
 		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR']
-					&& $vars['ERROR_MSG'] === 'Invalid integrations'
-					&& $vars['U_ACTION'] === 'adm.php?i=test'
-					&& isset($vars['CONSENTMANAGER_VERSION']);
-			}));
+			->with(...$args);
 
 		$request = $this->create_request_mock(
 			[
@@ -221,11 +224,13 @@ class acp_controller_test extends \phpbb_test_case
 		$this->acp_manager->method('parse_date_filter')->willReturn(false);
 		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
 		$this->acp_manager->expects(self::never())->method('log_admin_export');
+
+		$args = [self::callback(static function ($vars) {
+			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date from') !== false;
+		})];
 		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date from') !== false;
-			}));
+			->with(...$args);
 
 		$request = $this->create_request_mock([
 			'download_csv' => 1,
@@ -244,11 +249,13 @@ class acp_controller_test extends \phpbb_test_case
 		$this->acp_manager->method('parse_date_filter')->willReturn(false);
 		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
 		$this->acp_manager->expects(self::never())->method('log_admin_export');
+
+		$args = [self::callback(static function ($vars) {
+			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date to') !== false;
+		})];
 		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date to') !== false;
-			}));
+			->with(...$args);
 
 		$request = $this->create_request_mock([
 			'download_csv' => 1,
@@ -268,11 +275,13 @@ class acp_controller_test extends \phpbb_test_case
 			->willReturnOnConsecutiveCalls(1735603200, 1704067200);
 		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
 		$this->acp_manager->expects(self::never())->method('log_admin_export');
+
+		$args = [self::callback(static function ($vars) {
+			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], '"Date from"') !== false;
+		})];
 		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(self::callback(function ($vars) {
-				return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], '"Date from"') !== false;
-			}));
+			->with(...$args);
 
 		$request = $this->create_request_mock([
 			'download_csv' => 1,

@@ -670,6 +670,9 @@ class consent_manager implements consent_manager_interface
 	 * Allow extensions to register consent-aware integrations.
 	 *
 	 * @return void
+	 * @noinspection PhpVarTagWithoutVariableNameInspection
+	 * @noinspection PhpUnusedLocalVariableInspection
+	 * @noinspection PassingByReferenceCorrectnessInspection
 	 */
 	protected function collect_registrations()
 	{

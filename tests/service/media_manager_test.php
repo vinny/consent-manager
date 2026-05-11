@@ -167,10 +167,11 @@ class media_manager_test extends \phpbb_test_case
 
 	public function test_configure_iframe_renderer_sets_media_allowed_parameter()
 	{
+		$parameter_args = ['S_CONSENTMANAGER_MEDIA_ALLOWED', '1'];
 		$inner_renderer = $this->createMock('\s9e\TextFormatter\Renderer');
 		$inner_renderer->expects(self::once())
 			->method('setParameter')
-			->with('S_CONSENTMANAGER_MEDIA_ALLOWED', '1');
+			->with(...$parameter_args);
 
 		$renderer = $this->getMockBuilder('\phpbb\textformatter\s9e\renderer')
 			->disableOriginalConstructor()
@@ -186,10 +187,11 @@ class media_manager_test extends \phpbb_test_case
 
 	public function test_configure_iframe_renderer_clears_media_allowed_parameter_without_consent()
 	{
+		$parameter_args = ['S_CONSENTMANAGER_MEDIA_ALLOWED', ''];
 		$inner_renderer = $this->createMock('\s9e\TextFormatter\Renderer');
 		$inner_renderer->expects(self::once())
 			->method('setParameter')
-			->with('S_CONSENTMANAGER_MEDIA_ALLOWED', '');
+			->with(...$parameter_args);
 
 		$renderer = $this->getMockBuilder('\phpbb\textformatter\s9e\renderer')
 			->disableOriginalConstructor()
@@ -249,7 +251,7 @@ class media_manager_test extends \phpbb_test_case
 
 	public function test_strip_internal_s9e_attributes_removes_xsl_and_dom_attributes()
 	{
-		list($manager, $fixture) = $this->build_strip_internal_s9e_fixture();
+		[$manager, $fixture] = $this->build_strip_internal_s9e_fixture();
 
 		$this->invoke_method($manager, 'strip_internal_s9e_attributes', [$fixture]);
 
@@ -311,17 +313,19 @@ class media_manager_test extends \phpbb_test_case
 
 	protected function expect_media_enabled($enabled)
 	{
+		$category_args = ['media'];
 		$this->consent_manager->expects(self::once())
 			->method('is_category_enabled')
-			->with('media')
+			->with(...$category_args)
 			->willReturn($enabled);
 	}
 
 	protected function expect_media_consent($granted)
 	{
+		$category_args = ['media'];
 		$this->consent_manager->expects(self::once())
 			->method('has_server_consent')
-			->with('media')
+			->with(...$category_args)
 			->willReturn($granted);
 	}
 
