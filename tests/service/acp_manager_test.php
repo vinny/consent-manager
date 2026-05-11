@@ -53,7 +53,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
-		$manager->log_admin_settings_updated();
+		$manager->log_admin_action('LOG_CONSENTMANAGER_UPDATED');
 	}
 
 	public function test_log_admin_reprompt_delegates_to_phpbb_log()
@@ -68,7 +68,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
-		$manager->log_admin_reprompt();
+		$manager->log_admin_action('LOG_CONSENTMANAGER_REPROMPT');
 	}
 
 	public function test_log_admin_export_delegates_to_phpbb_log()
@@ -83,7 +83,22 @@ class acp_manager_test extends \phpbb_database_test_case
 			->with(...$log_args);
 
 		$manager = $this->create_manager(7, 'admin-session', $log);
-		$manager->log_admin_export();
+		$manager->log_admin_action('LOG_CONSENTMANAGER_EXPORT');
+	}
+
+	public function test_log_admin_delete_delegates_to_phpbb_log()
+	{
+		$log_args = ['admin', 7, '127.0.0.1', 'LOG_CONSENTMANAGER_DELETE'];
+		$log = $this->getMockBuilder('\phpbb\log\log')
+			->disableOriginalConstructor()
+			->setMethods(array('add'))
+			->getMock();
+		$log->expects(self::once())
+			->method('add')
+			->with(...$log_args);
+
+		$manager = $this->create_manager(7, 'admin-session', $log);
+		$manager->log_admin_action('LOG_CONSENTMANAGER_DELETE');
 	}
 
 	public function test_hash_user_id_returns_hmac_of_user_prefix()
@@ -578,6 +593,51 @@ class acp_manager_test extends \phpbb_database_test_case
 		// category cell must be prefixed with a tab to defuse the formula
 		self::assertStringStartsWith("\t", $row[3]);
 		self::assertStringContainsString('=DANGEROUS()', $row[3]);
+	}
+
+	public function test_delete_logs_deletes_all_rows_when_no_filters_are_provided()
+	{
+		$log_manager_a = $this->create_log_manager(10, 'session-a');
+		$log_manager_a->log_consent(array('necessary', 'analytics'), 2);
+
+		$log_manager_b = $this->create_log_manager(20, 'session-b');
+		$log_manager_b->log_consent(array('necessary'), 3);
+
+		$manager = $this->create_manager(1, 'session');
+
+		self::assertSame(2, $manager->delete_logs());
+
+		$handle = fopen('php://memory', 'wb+');
+		$manager->stream_logs_csv($handle);
+		rewind($handle);
+		$content = stream_get_contents($handle);
+		fclose($handle);
+
+		self::assertSame('', $content);
+	}
+
+	public function test_delete_logs_filters_by_user_id()
+	{
+		$manager_target = $this->create_log_manager(42, 'any-session');
+		$manager_target->log_consent(array('necessary'), 1);
+
+		$manager_other = $this->create_log_manager(99, 'other-session');
+		$manager_other->log_consent(array('necessary', 'analytics'), 1);
+
+		$manager = $this->create_manager(1, 'session');
+
+		self::assertSame(1, $manager->delete_logs(array('user_id' => 42)));
+
+		$handle = fopen('php://memory', 'wb+');
+		$manager->stream_logs_csv($handle);
+		rewind($handle);
+		$rows = array_filter(explode("\n", stream_get_contents($handle)));
+		fclose($handle);
+
+		self::assertCount(1, $rows);
+
+		$remaining_hash = hash_hmac('sha256', 'u:99', 'random-seed');
+		self::assertStringContainsString($remaining_hash, reset($rows));
 	}
 
 	public function test_parse_date_filter_returns_false_for_empty_string()

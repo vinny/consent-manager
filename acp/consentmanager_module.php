@@ -29,7 +29,7 @@ class consentmanager_module
 			case 'export':
 				$this->tpl_name = 'consentmanager_acp_export';
 				$this->page_title = 'ACP_CONSENTMANAGER_EXPORT';
-				$controller->handle_export();
+				$controller->handle_logs();
 			break;
 
 			default:

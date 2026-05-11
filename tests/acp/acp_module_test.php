@@ -121,7 +121,7 @@ class acp_module_test extends \phpbb_test_case
 
 	public function test_main_module_export_mode()
 	{
-		$this->expect_controller_method('handle_export');
+		$this->expect_controller_method('handle_logs');
 
 		$module = new \phpbb\consentmanager\acp\consentmanager_module();
 		$module->u_action = 'adm.php?i=test&mode=export';

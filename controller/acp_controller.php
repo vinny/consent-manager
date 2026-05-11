@@ -89,7 +89,7 @@ class acp_controller
 				return;
 			}
 
-			$this->acp_manager->log_admin_settings_updated();
+			$this->acp_manager->log_admin_action('LOG_CONSENTMANAGER_UPDATED');
 			trigger_error($this->language->lang('CONFIG_UPDATED') . adm_back_link($this->u_action));
 		}
 
@@ -98,7 +98,7 @@ class acp_controller
 			$this->validate_form_key('phpbb_consentmanager_acp');
 
 			$this->acp_manager->reset_consent_version();
-			$this->acp_manager->log_admin_reprompt();
+			$this->acp_manager->log_admin_action('LOG_CONSENTMANAGER_REPROMPT');
 
 			trigger_error($this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS') . adm_back_link($this->u_action));
 		}
@@ -107,14 +107,11 @@ class acp_controller
 	}
 
 	/**
-	 * Handle the ACP export page request.
-	 *
-	 * Displays the filter form on GET. On POST with download_csv, streams a
-	 * CSV file of consent log records matching the supplied filters.
+	 * Handle the ACP consent logs page request.
 	 *
 	 * @return void
 	 */
-	public function handle_export()
+	public function handle_logs()
 	{
 		add_form_key('phpbb_consentmanager_export');
 
@@ -131,8 +128,42 @@ class acp_controller
 				return;
 			}
 
-			$this->acp_manager->log_admin_export();
+			$this->acp_manager->log_admin_action('LOG_CONSENTMANAGER_EXPORT');
 			$this->send_csv_download($filters);
+		}
+		else if ($this->request->is_set_post('delete_logs'))
+		{
+			$errors = [];
+			$filters = $this->parse_export_filters($errors);
+
+			if (!empty($errors))
+			{
+				$this->assign_export_template_vars($errors);
+				return;
+			}
+
+			if (confirm_box(true))
+			{
+				$this->acp_manager->delete_logs($filters);
+				$this->acp_manager->log_admin_action('LOG_CONSENTMANAGER_DELETE');
+
+				trigger_error($this->language->lang('ACP_CONSENTMANAGER_DELETE_SUCCESS') . adm_back_link($this->u_action));
+			}
+			else
+			{
+				confirm_box(
+					false,
+					$this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'),
+					build_hidden_fields([
+						'mode'                   => 'export',
+						'delete_logs'            => 1,
+						'export_date_from'       => $this->request->variable('export_date_from', ''),
+						'export_date_to'         => $this->request->variable('export_date_to', ''),
+						'export_user_id'         => $this->request->variable('export_user_id', 0),
+						'export_consent_version' => $this->request->variable('export_consent_version', 0),
+					])
+				);
+			}
 		}
 
 		$this->assign_export_template_vars();
