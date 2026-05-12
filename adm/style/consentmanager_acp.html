@@ -11,6 +11,22 @@
 	</div>
 {% endif %}
 
+{# This is sample data so the hard-coded english text is intentional #}
+{% set integrations_example = [
+	{
+		id: 'board.analytics',
+		category: 'analytics',
+		label: 'Board Analytics',
+		description: 'Loads a simple analytics library after consent.',
+		src: 'https://cdn.example.com/analytics.js',
+		async: true,
+	}
+]|json_encode(
+	constant('JSON_PRETTY_PRINT')
+	b-or constant('JSON_UNESCAPED_SLASHES')
+	b-or constant('JSON_UNESCAPED_UNICODE')
+) %}
+
 <form id="acp_consentmanager" method="post" action="{{ U_ACTION }}">
 	<fieldset>
 		<legend>{{ lang('ACP_CONSENTMANAGER_CATEGORIES') }}</legend>
@@ -41,21 +57,8 @@
 		<legend>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') }}</legend>
 		<dl>
 			<dt><label for="consentmanager_integrations">{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') ~ lang('COLON') }}</label><br><span>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS_EXPLAIN') }}</span><br><br>
-				<span><strong>{{ lang('EXAMPLE') ~ lang('COLON') }}</strong></span>
-				<pre>
-					<code>
-[
-  {
-    "id": "board.analytics",
-    "category": "analytics",
-    "label": "Board Analytics",
-    "description": "Loads a simple analytics library after consent.",
-    "src": "https://cdn.example.com/analytics.js",
-    "async": true
-  }
-]
-					</code>
-				</pre>
+				<span><strong>{{ lang('EXAMPLE') ~ lang('COLON') }}</strong></span><br>
+				<pre><samp class="error">{{ integrations_example }}</samp></pre>
 			</dt>
 			<dd><textarea id="consentmanager_integrations" name="consentmanager_integrations" rows="14" cols="90">{{ CONSENTMANAGER_INTEGRATIONS|e('html') }}</textarea></dd>
 		</dl>
