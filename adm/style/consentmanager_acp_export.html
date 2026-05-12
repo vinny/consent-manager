@@ -17,20 +17,24 @@
 		<dl>
 			<dt>
 				<label for="export_date_from">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_FROM') ~ lang('COLON') }}</label>
-				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_EXPLAIN') }}</span>
+				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_FROM_EXPLAIN') }}</span>
 			</dt>
 			<dd><input type="date" id="export_date_from" name="export_date_from" value="{{ EXPORT_DATE_FROM|e('html') }}"></dd>
 		</dl>
 		<dl>
-			<dt><label for="export_date_to">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO') ~ lang('COLON') }}</label></dt>
+			<dt>
+				<label for="export_date_to">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO') ~ lang('COLON') }}</label>
+				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO_EXPLAIN') }}</span>
+			</dt>
 			<dd><input type="date" id="export_date_to" name="export_date_to" value="{{ EXPORT_DATE_TO|e('html') }}"></dd>
 		</dl>
 		<dl>
 			<dt>
-				<label for="export_user_id">{{ lang('ACP_CONSENTMANAGER_EXPORT_USER_ID') ~ lang('COLON') }}</label>
-				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_USER_ID_EXPLAIN') }}</span>
+				<label for="export_username">{{ lang('USERNAME') ~ lang('COLON') }}</label>
+				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_USERNAME_EXPLAIN') }}</span>
 			</dt>
-			<dd><input type="number" id="export_user_id" name="export_user_id" min="0" value="{{ EXPORT_USER_ID }}"></dd>
+			<dd><input type="text" id="export_username" name="export_username" value="{{ EXPORT_USERNAME|e('html') }}" class="text narrow"></dd>
+			<dd>[ <a href="{{ U_FIND_USERNAME }}" onclick="find_username(this.href); return false;">{{ lang('FIND_USERNAME') }}</a> ]</dd>
 		</dl>
 		<dl>
 			<dt>

@@ -15,6 +15,9 @@ class acp_manager_test extends \phpbb_database_test_case
 	/** @var \phpbb\language\language */
 	protected $language;
 
+	/** @var \phpbb\db\driver\driver_interface */
+	protected $db;
+
 	public static function setup_extensions()
 	{
 		return array('phpbb/consentmanager');
@@ -24,16 +27,16 @@ class acp_manager_test extends \phpbb_database_test_case
 	{
 		parent::setUp();
 
-		global $phpbb_root_path, $phpEx;
+		global $db, $phpbb_root_path, $phpEx;
 
 		$lang_loader = new \phpbb\language\language_file_loader($phpbb_root_path, $phpEx);
 		$this->language = new \phpbb\language\language($lang_loader);
 		$this->language->add_lang('common', 'phpbb/consentmanager');
 		$this->language->add_lang('acp_consentmanager', 'phpbb/consentmanager');
 
-		$db = $this->new_dbal();
-		$db->sql_query('DELETE FROM phpbb_consentmanager_logs');
-		$db->sql_close();
+		$db = $this->db = $this->new_dbal();
+		$this->db->sql_query('DELETE FROM phpbb_consentmanager_logs');
+		$this->db->sql_query("DELETE FROM phpbb_users WHERE username_clean = 'lookupuser'");
 	}
 
 	public function getDataSet()
@@ -115,6 +118,30 @@ class acp_manager_test extends \phpbb_database_test_case
 
 		self::assertSame($manager->hash_user_id(99), $manager->hash_user_id(99));
 		self::assertNotSame($manager->hash_user_id(1), $manager->hash_user_id(2));
+	}
+
+	public function test_get_user_id_by_username_returns_matching_user_id()
+	{
+		$this->db->sql_query("INSERT INTO phpbb_users (user_type, group_id, username, username_clean, user_regdate, user_password, user_email, user_lang, user_style, user_rank, user_colour, user_posts, user_permissions, user_ip, user_birthday, user_lastpage, user_last_confirm_key, user_post_sortby_type, user_post_sortby_dir, user_topic_sortby_type, user_topic_sortby_dir, user_avatar, user_sig, user_sig_bbcode_uid, user_jabber, user_actkey, user_actkey_expiration, user_newpasswd, user_allow_massemail) VALUES (" . USER_NORMAL . ", 2, 'LookupUser', 'lookupuser', 0, '', 'lookup@example.com', 'en', 1, 0, '', 0, '', '', '', '', '', 't', 'a', 't', 'd', '', '', '', '', '', 0, '', 0)");
+
+		$sql = 'SELECT user_id
+			FROM phpbb_users
+			WHERE username_clean = \'lookupuser\'';
+		$result = $this->db->sql_query($sql);
+		$user_id = (int) $this->db->sql_fetchfield('user_id');
+		$this->db->sql_freeresult($result);
+
+		$manager = $this->create_manager(1, 'session');
+
+		self::assertSame($user_id, $manager->get_user_id_by_username('LookupUser'));
+	}
+
+	public function test_get_user_id_by_username_returns_false_when_user_is_missing()
+	{
+		$manager = $this->create_manager(1, 'session');
+
+		self::assertFalse($manager->get_user_id_by_username('MissingUser'));
+		self::assertFalse($manager->get_user_id_by_username(''));
 	}
 
 	public function test_get_settings_template_data_pretty_prints_stored_integrations()
@@ -483,16 +510,14 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_stream_logs_csv_filters_by_date_range()
 	{
-		$db   = $this->new_dbal();
 		$now  = time();
 		$past = $now - 7200; // 2 hours ago
 
-		$db->sql_query('INSERT INTO phpbb_consentmanager_logs
+		$this->db->sql_query('INSERT INTO phpbb_consentmanager_logs
 			(anonymized_id, consent_version, accepted_categories, consent_time)
 			VALUES
-			(\'' . $db->sql_escape('hash-old') . '\', 1, \'["necessary"]\', ' . $past . '),
-			(\'' . $db->sql_escape('hash-new') . '\', 1, \'["necessary","analytics"]\', ' . $now . ')');
-		$db->sql_close();
+			(\'' . $this->db->sql_escape('hash-old') . '\', 1, \'["necessary"]\', ' . $past . '),
+			(\'' . $this->db->sql_escape('hash-new') . '\', 1, \'["necessary","analytics"]\', ' . $now . ')');
 
 		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle, array(
@@ -577,12 +602,10 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	public function test_stream_logs_csv_sanitizes_formula_injection_in_categories()
 	{
-		$db = $this->new_dbal();
 		// Insert a row whose accepted_categories begins with '=' — a formula injection attempt
-		$db->sql_query('INSERT INTO phpbb_consentmanager_logs
+		$this->db->sql_query('INSERT INTO phpbb_consentmanager_logs
 			(anonymized_id, consent_version, accepted_categories, consent_time)
 			VALUES (\'hash-x\', 1, \'["=DANGEROUS()"]\', ' . time() . ')');
-		$db->sql_close();
 
 		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle);
@@ -674,6 +697,8 @@ class acp_manager_test extends \phpbb_database_test_case
 
 	protected function create_manager($user_id, $session_id, $log = null, $config_text = null, $consent_manager = null, $consent_cache = null, $text_formatter_cache = null, array $config_values = [])
 	{
+		global $phpbb_root_path, $phpEx;
+
 		$config = new \phpbb\config\config(array_merge(array(
 			'rand_seed' => 'random-seed',
 			'consentmanager_analytics_enabled' => 1,
@@ -681,8 +706,6 @@ class acp_manager_test extends \phpbb_database_test_case
 			'consentmanager_media_enabled' => 1,
 			'consentmanager_consent_version' => 1,
 		), $config_values));
-		$db = $this->new_dbal();
-
 		if ($log === null)
 		{
 			$log = $this->getMockBuilder('\phpbb\log\log')
@@ -723,7 +746,7 @@ class acp_manager_test extends \phpbb_database_test_case
 
 		return new \phpbb\consentmanager\service\acp_manager(
 			$config,
-			$db,
+			$this->db,
 			$config_text,
 			$this->language,
 			$log,
@@ -731,6 +754,8 @@ class acp_manager_test extends \phpbb_database_test_case
 			$consent_cache,
 			$text_formatter_cache,
 			$user,
+			$phpbb_root_path,
+			$phpEx,
 			'phpbb_consentmanager_logs'
 		);
 	}
@@ -788,7 +813,6 @@ JSON;
 		$config = new \phpbb\config\config(array(
 			'rand_seed' => 'random-seed',
 		));
-		$db = $this->new_dbal();
 
 		$user = new \phpbb\user($this->language, '\phpbb\datetime');
 		$user->data = array(
@@ -799,7 +823,7 @@ JSON;
 
 		return new \phpbb\consentmanager\service\log_manager(
 			$config,
-			$db,
+			$this->db,
 			$user,
 			'phpbb_consentmanager_logs'
 		);

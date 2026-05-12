@@ -48,6 +48,12 @@ class acp_manager
 	protected $user;
 
 	/** @var string */
+	protected $root_path;
+
+	/** @var string */
+	protected $php_ext;
+
+	/** @var string */
 	protected $consent_logs_table;
 
 	/**
@@ -62,9 +68,11 @@ class acp_manager
 	 * @param consent_cache             $consent_cache Persistent cache helper
 	 * @param cache_interface           $text_formatter_cache Text formatter cache service
 	 * @param user                      $user Current user
+	 * @param string                    $root_path phpBB root path
+	 * @param string                    $php_ext PHP file extension
 	 * @param string                    $consent_logs_table Consent log table name
 	 */
-	public function __construct(config $config, driver_interface $db, db_text $config_text, language $language, phpbb_log $log, consent_manager_interface $consent_manager, consent_cache $consent_cache, cache_interface $text_formatter_cache, user $user, $consent_logs_table)
+	public function __construct(config $config, driver_interface $db, db_text $config_text, language $language, phpbb_log $log, consent_manager_interface $consent_manager, consent_cache $consent_cache, cache_interface $text_formatter_cache, user $user, $root_path, $php_ext, $consent_logs_table)
 	{
 		$this->config = $config;
 		$this->db = $db;
@@ -75,6 +83,8 @@ class acp_manager
 		$this->consent_cache = $consent_cache;
 		$this->text_formatter_cache = $text_formatter_cache;
 		$this->user = $user;
+		$this->root_path = $root_path;
+		$this->php_ext = $php_ext;
 		$this->consent_logs_table = $consent_logs_table;
 	}
 
@@ -167,6 +177,39 @@ class acp_manager
 		return $end_of_day
 			? (int) $dt->setTime(23, 59, 59)->getTimestamp()
 			: (int) $dt->getTimestamp();
+	}
+
+	/**
+	 * Resolve a phpBB username to its numeric user ID.
+	 *
+	 * @param string $username Submitted username
+	 *
+	 * @return int|false User ID on success, false when no matching user exists
+	 */
+	public function get_user_id_by_username($username)
+	{
+		$username = trim((string) $username);
+
+		if ($username === '')
+		{
+			return false;
+		}
+
+		if (!function_exists('user_get_id_name'))
+		{
+			include_once($this->root_path . 'includes/functions_user.' . $this->php_ext);
+		}
+
+		$user_id_ary = [];
+		$username_ary = [$username];
+		$error = user_get_id_name($user_id_ary, $username_ary, false, true);
+
+		if ($error !== false || empty($user_id_ary))
+		{
+			return false;
+		}
+
+		return (int) reset($user_id_ary);
 	}
 
 	/**

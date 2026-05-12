@@ -30,6 +30,12 @@ class acp_controller
 	protected $template;
 
 	/** @var string */
+	protected $root_path;
+
+	/** @var string */
+	protected $php_ext;
+
+	/** @var string */
 	protected $u_action = '';
 
 	/**
@@ -39,13 +45,17 @@ class acp_controller
 	 * @param acp_manager $acp_manager ACP manager service
 	 * @param request     $request Request service
 	 * @param template    $template Template service
+	 * @param string      $root_path phpBB root path
+	 * @param string      $php_ext PHP file extension
 	 */
-	public function __construct(language $language, acp_manager $acp_manager, request $request, template $template)
+	public function __construct(language $language, acp_manager $acp_manager, request $request, template $template, $root_path, $php_ext)
 	{
 		$this->language = $language;
 		$this->acp_manager = $acp_manager;
 		$this->request = $request;
 		$this->template = $template;
+		$this->root_path = $root_path;
+		$this->php_ext = $php_ext;
 
 		$this->language->add_lang('acp_consentmanager', 'phpbb/consentmanager');
 	}
@@ -176,9 +186,9 @@ class acp_controller
 	 */
 	protected function parse_export_filters(array $form_data, array &$errors)
 	{
-		$date_from_str = trim($form_data['export_date_from']);
-		$date_to_str   = trim($form_data['export_date_to']);
-		$user_id       = $form_data['export_user_id'];
+		$date_from_str = $form_data['export_date_from'];
+		$date_to_str   = $form_data['export_date_to'];
+		$username      = $form_data['export_username'];
 		$consent_ver   = $form_data['export_consent_version'];
 
 		$filters   = [];
@@ -213,9 +223,18 @@ class acp_controller
 			}
 		}
 
-		if ($user_id > 0)
+		if ($username !== '')
 		{
-			$filters['user_id'] = $user_id;
+			$user_id = $this->acp_manager->get_user_id_by_username($username);
+
+			if ($user_id === false)
+			{
+				$errors[] = $this->language->lang('ACP_CONSENTMANAGER_EXPORT_INVALID_USERNAME', $username);
+			}
+			else
+			{
+				$filters['user_id'] = $user_id;
+			}
 		}
 
 		if ($consent_ver > 0)
@@ -251,9 +270,9 @@ class acp_controller
 	protected function get_logs_form_data()
 	{
 		return [
-			'export_date_from'       => $this->request->variable('export_date_from', ''),
-			'export_date_to'         => $this->request->variable('export_date_to', ''),
-			'export_user_id'         => $this->request->variable('export_user_id', 0),
+			'export_date_from'       => trim($this->request->variable('export_date_from', '')),
+			'export_date_to'         => trim($this->request->variable('export_date_to', '')),
+			'export_username'        => trim($this->request->variable('export_username', '')),
 			'export_consent_version' => $this->request->variable('export_consent_version', 0),
 		];
 	}
@@ -277,10 +296,19 @@ class acp_controller
 			'ERROR_MSG'          => implode('<br>', $errors),
 			'EXPORT_DATE_FROM'   => $form_data['export_date_from'],
 			'EXPORT_DATE_TO'     => $form_data['export_date_to'],
-			'EXPORT_USER_ID'     => $form_data['export_user_id'],
+			'EXPORT_USERNAME'    => $form_data['export_username'],
 			'EXPORT_CONSENT_VER' => $form_data['export_consent_version'],
+			'U_FIND_USERNAME'    => $this->get_find_username_url(),
 			'U_ACTION'           => $this->u_action,
 		]);
+	}
+
+	protected function get_find_username_url()
+	{
+		return append_sid(
+			"{$this->root_path}memberlist.$this->php_ext",
+			'mode=searchuser&amp;form=acp_consentmanager_export&amp;field=export_username&amp;select_single=true'
+		);
 	}
 
 	protected function validate_form_key($form_key)

@@ -15,6 +15,9 @@ class log_manager_test extends \phpbb_database_test_case
 	/** @var \phpbb\language\language */
 	protected $language;
 
+	/** @var \phpbb\db\driver\driver_interface */
+	protected $db;
+
 	public static function setup_extensions()
 	{
 		return array('phpbb/consentmanager');
@@ -24,14 +27,13 @@ class log_manager_test extends \phpbb_database_test_case
 	{
 		parent::setUp();
 
-		global $phpbb_root_path, $phpEx;
+		global $db, $phpbb_root_path, $phpEx;
 
 		$lang_loader = new \phpbb\language\language_file_loader($phpbb_root_path, $phpEx);
 		$this->language = new \phpbb\language\language($lang_loader);
 
-		$db = $this->new_dbal();
-		$db->sql_query('DELETE FROM phpbb_consentmanager_logs');
-		$db->sql_close();
+		$db = $this->db = $this->new_dbal();
+		$this->db->sql_query('DELETE FROM phpbb_consentmanager_logs');
 	}
 
 	public function getDataSet()
@@ -68,7 +70,6 @@ class log_manager_test extends \phpbb_database_test_case
 		$config = new \phpbb\config\config(array(
 			'rand_seed' => 'random-seed',
 		));
-		$db = $this->new_dbal();
 
 		$user = new \phpbb\user($this->language, '\phpbb\datetime');
 		$user->data = array(
@@ -79,7 +80,7 @@ class log_manager_test extends \phpbb_database_test_case
 
 		return new \phpbb\consentmanager\service\log_manager(
 			$config,
-			$db,
+			$this->db,
 			$user,
 			'phpbb_consentmanager_logs'
 		);

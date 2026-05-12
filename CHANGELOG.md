@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.0-dev - 2026-05-12
+
+### Added
+
+- Added support for permanently deleting consent log records with the same optional filters used for CSV exports.
+- Added timestamps to exported consent log CSV file names so repeated exports are easier to distinguish.
+
+### Changed
+
+- Exporting or deleting consent logs by user now lets you pick that user by username instead of user ID.
+- Updated the language explaining the *Date from* and *Date to* fields in the ACP Consent Logs page.
+- Updated the developer documentation with clearer consent integration guidance, including iframe-specific patterns.
+- Allowed the extension to install on phpBB 4 while retaining support for phpBB 3.3 and later.
+
+### Fixed
+
+- Fixed consent decisions that require a page reload so they are still logged before the browser refreshes.
+- Fixed consent log CSV downloads to use binary-safe output handling for better compatibility with spreadsheet applications.
+
 ## 0.2.0-dev - 2026-05-09
 
 ### Added

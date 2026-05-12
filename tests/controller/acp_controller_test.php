@@ -76,11 +76,14 @@ class acp_controller_test extends \phpbb_test_case
 
 	protected function create_controller($request, $u_action = 'adm.php?i=test')
 	{
+		global $phpbb_root_path, $phpEx;
 		$controller = new \phpbb\consentmanager\controller\acp_controller(
 			$this->language,
 			$this->acp_manager,
 			$request,
-			$this->template
+			$this->template,
+			$phpbb_root_path,
+			$phpEx
 		);
 		$controller->set_page_url($u_action);
 		return $controller;
@@ -212,8 +215,9 @@ class acp_controller_test extends \phpbb_test_case
 				'ERROR_MSG'          => '',
 				'EXPORT_DATE_FROM'   => '',
 				'EXPORT_DATE_TO'     => '',
-				'EXPORT_USER_ID'     => 0,
+				'EXPORT_USERNAME'    => '',
 				'EXPORT_CONSENT_VER' => 0,
+				'U_FIND_USERNAME'    => 'u_find_username',
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
@@ -236,6 +240,7 @@ class acp_controller_test extends \phpbb_test_case
 
 		$this->acp_manager->expects(self::never())->method('delete_logs');
 		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
 		$this->template->expects(self::once())
@@ -245,8 +250,9 @@ class acp_controller_test extends \phpbb_test_case
 				'ERROR_MSG'          => '',
 				'EXPORT_DATE_FROM'   => '2024-01-01',
 				'EXPORT_DATE_TO'     => '2024-12-31',
-				'EXPORT_USER_ID'     => 42,
+				'EXPORT_USERNAME'    => 'Alice',
 				'EXPORT_CONSENT_VER' => 2,
+				'U_FIND_USERNAME'    => 'u_find_username',
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
@@ -254,7 +260,7 @@ class acp_controller_test extends \phpbb_test_case
 			'delete_logs' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
@@ -267,6 +273,7 @@ class acp_controller_test extends \phpbb_test_case
 		self::$valid_form = true;
 		self::$confirm_result = false;
 
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
 		$this->acp_manager->expects(self::never())->method('delete_logs');
@@ -278,8 +285,9 @@ class acp_controller_test extends \phpbb_test_case
 				'ERROR_MSG'          => '',
 				'EXPORT_DATE_FROM'   => '2024-01-01',
 				'EXPORT_DATE_TO'     => '2024-12-31',
-				'EXPORT_USER_ID'     => 42,
+				'EXPORT_USERNAME'    => 'Alice',
 				'EXPORT_CONSENT_VER' => 2,
+				'U_FIND_USERNAME'    => 'u_find_username',
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
@@ -287,7 +295,7 @@ class acp_controller_test extends \phpbb_test_case
 			'delete_logs' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
@@ -298,7 +306,7 @@ class acp_controller_test extends \phpbb_test_case
 			'delete_logs' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		], self::$confirm_hidden_fields);
 	}
@@ -310,6 +318,7 @@ class acp_controller_test extends \phpbb_test_case
 
 		$this->acp_manager->expects(self::never())->method('delete_logs');
 		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->expects(self::exactly(2))->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->expects(self::exactly(4))
 			->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599, 1704067200, 1735689599);
@@ -320,8 +329,9 @@ class acp_controller_test extends \phpbb_test_case
 				'ERROR_MSG'          => '',
 				'EXPORT_DATE_FROM'   => '2024-01-01',
 				'EXPORT_DATE_TO'     => '2024-12-31',
-				'EXPORT_USER_ID'     => 42,
+				'EXPORT_USERNAME'    => 'Alice',
 				'EXPORT_CONSENT_VER' => 2,
+				'U_FIND_USERNAME'    => 'u_find_username',
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
@@ -330,7 +340,7 @@ class acp_controller_test extends \phpbb_test_case
 			'confirm_key' => 'existing-confirm-key',
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 		$this->create_controller($cancel_request, 'adm.php?i=test&mode=export')->handle_logs();
@@ -342,7 +352,7 @@ class acp_controller_test extends \phpbb_test_case
 			'delete_logs' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 
@@ -390,7 +400,7 @@ class acp_controller_test extends \phpbb_test_case
 				[
 					'export_date_from' => 'not-a-date',
 					'export_date_to' => '',
-					'export_user_id' => 0,
+					'export_username' => '',
 					'export_consent_version' => 0,
 				],
 				[false],
@@ -400,7 +410,7 @@ class acp_controller_test extends \phpbb_test_case
 				[
 					'export_date_from' => '',
 					'export_date_to' => '2024-13-01',
-					'export_user_id' => 0,
+					'export_username' => '',
 					'export_consent_version' => 0,
 				],
 				[false],
@@ -410,11 +420,11 @@ class acp_controller_test extends \phpbb_test_case
 				[
 					'export_date_from' => '2024-12-31',
 					'export_date_to' => '2024-01-01',
-					'export_user_id' => 0,
+					'export_username' => '',
 					'export_consent_version' => 0,
 				],
 				[1735603200, 1704067200],
-				'"Date from"',
+				'Date from',
 			],
 		];
 
@@ -435,6 +445,7 @@ class acp_controller_test extends \phpbb_test_case
 	{
 		self::$valid_form = true;
 
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
 		$this->acp_manager->expects(self::once())->method('log_admin_action')->with('LOG_CONSENTMANAGER_EXPORT');
@@ -443,15 +454,18 @@ class acp_controller_test extends \phpbb_test_case
 			'download_csv' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 
+		global $phpbb_root_path, $phpEx;
 		$controller = new \phpbb\consentmanager\tests\controller\testable_acp_controller(
 			$this->language,
 			$this->acp_manager,
 			$request,
-			$this->template
+			$this->template,
+			$phpbb_root_path,
+			$phpEx
 		);
 		$controller->set_page_url('adm.php?i=test&mode=export');
 		$controller->handle_logs();
@@ -469,6 +483,7 @@ class acp_controller_test extends \phpbb_test_case
 		self::$valid_form = false;
 		self::$confirm_result = true;
 
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
 		$this->acp_manager->expects(self::once())
@@ -487,10 +502,48 @@ class acp_controller_test extends \phpbb_test_case
 			'delete_logs' => 1,
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
-			'export_user_id' => 42,
+			'export_username' => 'Alice',
 			'export_consent_version' => 2,
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
+	}
+
+	/**
+	 * @dataProvider handle_logs_unknown_username_data
+	 */
+	public function test_handle_logs_unknown_username_shows_error($action)
+	{
+		self::$valid_form = true;
+
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('MissingUser')->willReturn(false);
+		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->method('parse_date_filter')
+			->willReturn(false);
+
+		$args = [self::callback(function ($vars) {
+			return $vars['S_ERROR'] === true
+				&& strpos($vars['ERROR_MSG'], 'MissingUser') !== false
+				&& $vars['EXPORT_USERNAME'] === 'MissingUser'
+				&& $vars['U_FIND_USERNAME'] === 'u_find_username';
+		})];
+		$this->template->expects(self::once())
+			->method('assign_vars')
+			->with(...$args);
+
+		$this->create_controller($this->create_request_mock([
+			$action => 1,
+			'export_username' => 'MissingUser',
+		]), 'adm.php?i=test&mode=export')->handle_logs();
+	}
+
+	public function handle_logs_unknown_username_data()
+	{
+		return [
+			'download csv' => ['download_csv'],
+			'delete logs' => ['delete_logs'],
+		];
 	}
 
 	protected function create_request_mock(array $values = [], array $raw_values = [])
@@ -584,4 +637,9 @@ function build_hidden_fields($fields)
 function adm_back_link()
 {
 	return '';
+}
+
+function append_sid()
+{
+	return 'u_find_username';
 }

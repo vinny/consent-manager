@@ -40,6 +40,8 @@ services:
             - '@phpbb.consentmanager.cache'
             - '@text_formatter.cache'
             - '@user'
+            - '%core.root_path%'
+            - '%core.php_ext%'
             - '%tables.phpbb.consentmanager.consent_logs%'
 
     phpbb.consentmanager.media_manager:
@@ -65,6 +67,8 @@ services:
             - '@phpbb.consentmanager.acp_manager'
             - '@request'
             - '@template'
+            - '%core.root_path%'
+            - '%core.php_ext%'
 
     phpbb.consentmanager.controller.log:
         class: phpbb\consentmanager\controller\log_controller
