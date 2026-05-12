@@ -41,6 +41,7 @@ class acp_controller_test extends \phpbb_test_case
 	protected function setUp(): void
 	{
 		parent::setUp();
+		$_POST = [];
 
 		global $phpbb_root_path, $phpEx;
 
@@ -233,7 +234,7 @@ class acp_controller_test extends \phpbb_test_case
 		$this->create_controller($this->create_request_mock(['download_csv' => 1]), 'adm.php?i=test&mode=export')->handle_logs();
 	}
 
-	public function test_handle_logs_delete_requests_confirmation_without_form_key_validation()
+	public function test_handle_logs_delete_rejects_invalid_form_key_before_confirmation()
 	{
 		self::$valid_form = false;
 		self::$confirm_result = false;
@@ -243,18 +244,8 @@ class acp_controller_test extends \phpbb_test_case
 		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
-		$this->template->expects(self::once())
-			->method('assign_vars')
-			->with([
-				'S_ERROR'            => false,
-				'ERROR_MSG'          => '',
-				'EXPORT_DATE_FROM'   => '2024-01-01',
-				'EXPORT_DATE_TO'     => '2024-12-31',
-				'EXPORT_USERNAME'    => 'Alice',
-				'EXPORT_CONSENT_VER' => 2,
-				'U_FIND_USERNAME'    => 'u_find_username',
-				'U_ACTION'           => 'adm.php?i=test&mode=export',
-			]);
+		$this->template->expects(self::never())->method('assign_vars');
+		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
 		$request = $this->create_request_mock([
 			'delete_logs' => 1,
@@ -264,8 +255,6 @@ class acp_controller_test extends \phpbb_test_case
 			'export_consent_version' => 2,
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
-
-		self::assertSame($this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'), self::$confirm_title);
 	}
 
 	public function test_handle_logs_delete_requests_confirmation_with_current_filters()
@@ -297,6 +286,8 @@ class acp_controller_test extends \phpbb_test_case
 			'export_date_to' => '2024-12-31',
 			'export_username' => 'Alice',
 			'export_consent_version' => 2,
+			'creation_time' => 1234567890,
+			'form_token' => 'form-token-value',
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
 
@@ -308,21 +299,27 @@ class acp_controller_test extends \phpbb_test_case
 			'export_date_to' => '2024-12-31',
 			'export_username' => 'Alice',
 			'export_consent_version' => 2,
+			'creation_time' => 1234567890,
+			'form_token' => 'form-token-value',
 		], self::$confirm_hidden_fields);
 	}
 
-	public function test_handle_logs_delete_cancel_returns_to_form_and_next_request_confirms_again()
+	public function test_handle_logs_delete_cancel_returns_to_form_without_invalid_form_error()
 	{
-		self::$valid_form = false;
+		self::$valid_form = true;
 		self::$confirm_result = false;
+		$_POST = [
+			'cancel' => 1,
+			'confirm_key' => 'existing-confirm-key',
+		];
 
 		$this->acp_manager->expects(self::never())->method('delete_logs');
 		$this->acp_manager->expects(self::never())->method('log_admin_action');
-		$this->acp_manager->expects(self::exactly(2))->method('get_user_id_by_username')->with('Alice')->willReturn(42);
-		$this->acp_manager->expects(self::exactly(4))
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
+		$this->acp_manager->expects(self::exactly(2))
 			->method('parse_date_filter')
-			->willReturnOnConsecutiveCalls(1704067200, 1735689599, 1704067200, 1735689599);
-		$this->template->expects(self::exactly(2))
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
+		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with([
 				'S_ERROR'            => false,
@@ -335,30 +332,20 @@ class acp_controller_test extends \phpbb_test_case
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
-		$cancel_request = $this->create_request_mock([
+		$reopened_request = $this->create_request_mock([
 			'delete_logs' => 1,
 			'confirm_key' => 'existing-confirm-key',
 			'export_date_from' => '2024-01-01',
 			'export_date_to' => '2024-12-31',
 			'export_username' => 'Alice',
 			'export_consent_version' => 2,
+			'creation_time' => 1234567890,
+			'form_token' => 'form-token-value',
 		]);
-		$this->create_controller($cancel_request, 'adm.php?i=test&mode=export')->handle_logs();
+		$this->create_controller($reopened_request, 'adm.php?i=test&mode=export')->handle_logs();
 
-		self::$confirm_title = '';
-		self::$confirm_hidden_fields = null;
-
-		$fresh_request = $this->create_request_mock([
-			'delete_logs' => 1,
-			'export_date_from' => '2024-01-01',
-			'export_date_to' => '2024-12-31',
-			'export_username' => 'Alice',
-			'export_consent_version' => 2,
-		]);
-
-		$this->create_controller($fresh_request, 'adm.php?i=test&mode=export')->handle_logs();
-
-		self::assertSame($this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'), self::$confirm_title);
+		self::assertSame('', self::$confirm_title);
+		self::assertNull(self::$confirm_hidden_fields);
 	}
 
 	/**
@@ -480,7 +467,7 @@ class acp_controller_test extends \phpbb_test_case
 
 	public function test_handle_logs_delete_confirmed_logs_and_triggers_success_notice()
 	{
-		self::$valid_form = false;
+		self::$valid_form = true;
 		self::$confirm_result = true;
 
 		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
@@ -504,6 +491,32 @@ class acp_controller_test extends \phpbb_test_case
 			'export_date_to' => '2024-12-31',
 			'export_username' => 'Alice',
 			'export_consent_version' => 2,
+			'creation_time' => 1234567890,
+			'form_token' => 'form-token-value',
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
+	}
+
+	public function test_handle_logs_delete_confirmed_rejects_invalid_form_key()
+	{
+		self::$valid_form = false;
+		self::$confirm_result = true;
+
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->expects(self::once())->method('get_user_id_by_username')->with('Alice')->willReturn(42);
+		$this->acp_manager->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
+		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
+
+		$request = $this->create_request_mock([
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_username' => 'Alice',
+			'export_consent_version' => 2,
+			'creation_time' => 1234567890,
+			'form_token' => 'form-token-value',
 		]);
 		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
 	}
@@ -621,7 +634,17 @@ function confirm_box($check, $title = '', $hidden = null)
 {
 	if ($check)
 	{
+		if (isset($_POST['cancel']))
+		{
+			return false;
+		}
+
 		return \phpbb\consentmanager\tests\controller\acp_controller_test::$confirm_result;
+	}
+
+	if (!empty($_POST['confirm_key']))
+	{
+		return false;
 	}
 
 	\phpbb\consentmanager\tests\controller\acp_controller_test::$confirm_title = $title;

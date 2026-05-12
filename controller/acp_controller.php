@@ -123,12 +123,12 @@ class acp_controller
 	 */
 	public function handle_logs()
 	{
-		add_form_key('phpbb_consentmanager_export');
+		add_form_key('phpbb_consentmanager_logs');
 		$form_data = $this->get_logs_form_data();
 
 		if ($this->request->is_set_post('download_csv'))
 		{
-			$this->validate_form_key('phpbb_consentmanager_export');
+			$this->validate_form_key('phpbb_consentmanager_logs');
 
 			$errors = [];
 			$filters = $this->parse_export_filters($form_data, $errors);
@@ -144,6 +144,8 @@ class acp_controller
 		}
 		else if ($this->request->is_set_post('delete_logs'))
 		{
+			$this->validate_form_key('phpbb_consentmanager_logs');
+
 			$errors = [];
 			$filters = $this->parse_export_filters($form_data, $errors);
 
@@ -168,7 +170,7 @@ class acp_controller
 					build_hidden_fields(array_merge([
 						'mode'                   => 'export',
 						'delete_logs'            => 1,
-					], $form_data))
+					], $form_data, $this->get_current_form_token_fields()))
 				);
 			}
 		}
@@ -274,6 +276,19 @@ class acp_controller
 			'export_date_to'         => trim($this->request->variable('export_date_to', '')),
 			'export_username'        => trim($this->request->variable('export_username', '')),
 			'export_consent_version' => $this->request->variable('export_consent_version', 0),
+		];
+	}
+
+	protected function get_current_form_token_fields()
+	{
+		if (!$this->request->is_set_post('creation_time') || !$this->request->is_set_post('form_token'))
+		{
+			return [];
+		}
+
+		return [
+			'creation_time' => $this->request->variable('creation_time', 0),
+			'form_token'    => $this->request->variable('form_token', ''),
 		];
 	}
 
