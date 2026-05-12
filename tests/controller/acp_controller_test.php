@@ -17,6 +17,15 @@ class acp_controller_test extends \phpbb_test_case
 	/** @var bool */
 	public static $valid_form = true;
 
+	/** @var bool */
+	public static $confirm_result = false;
+
+	/** @var string */
+	public static $confirm_title = '';
+
+	/** @var mixed */
+	public static $confirm_hidden_fields;
+
 	/** @var \phpbb\language\language */
 	protected $language;
 
@@ -60,6 +69,9 @@ class acp_controller_test extends \phpbb_test_case
 
 		$this->template        = $this->createMock('\phpbb\template\template');
 		$this->acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');
+		self::$confirm_result = false;
+		self::$confirm_title = '';
+		self::$confirm_hidden_fields = null;
 	}
 
 	protected function create_controller($request, $u_action = 'adm.php?i=test')
@@ -114,7 +126,7 @@ class acp_controller_test extends \phpbb_test_case
 		$this->acp_manager->expects(self::once())
 			->method('get_settings_template_data')
 			->willReturn(['CONSENTMANAGER_VERSION' => 3]);
-		$this->acp_manager->expects(self::never())->method('log_admin_settings_updated');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
 
 		$args = [self::callback(static function ($vars) {
 			return $vars['S_ERROR']
@@ -144,7 +156,7 @@ class acp_controller_test extends \phpbb_test_case
 		self::$valid_form = true;
 
 		$this->acp_manager->expects(self::once())->method('save_settings')->willReturn(true);
-		$this->acp_manager->expects(self::once())->method('log_admin_settings_updated');
+		$this->acp_manager->expects(self::once())->method('log_admin_action')->with('LOG_CONSENTMANAGER_UPDATED');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('CONFIG_UPDATED'));
 
 		$request = $this->create_request_mock(
@@ -164,7 +176,7 @@ class acp_controller_test extends \phpbb_test_case
 		self::$valid_form = true;
 
 		$this->acp_manager->expects(self::once())->method('reset_consent_version');
-		$this->acp_manager->expects(self::once())->method('log_admin_reprompt');
+		$this->acp_manager->expects(self::once())->method('log_admin_action')->with('LOG_CONSENTMANAGER_REPROMPT');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS'));
 
 		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
@@ -185,13 +197,13 @@ class acp_controller_test extends \phpbb_test_case
 		self::$valid_form = false;
 
 		$this->acp_manager->expects(self::never())->method('reset_consent_version');
-		$this->acp_manager->expects(self::never())->method('log_admin_reprompt');
+		$this->acp_manager->expects(self::never())->method('log_admin_action')->with('LOG_CONSENTMANAGER_REPROMPT');
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
 		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
 	}
 
-	public function test_handle_export_shows_empty_form()
+	public function test_handle_logs_export_shows_empty_form()
 	{
 		$this->template->expects(self::once())
 			->method('assign_vars')
@@ -205,101 +217,227 @@ class acp_controller_test extends \phpbb_test_case
 				'U_ACTION'           => 'adm.php?i=test&mode=export',
 			]);
 
-		$this->create_controller($this->create_request_mock(), 'adm.php?i=test&mode=export')->handle_export();
+		$this->create_controller($this->create_request_mock(), 'adm.php?i=test&mode=export')->handle_logs();
 	}
 
-	public function test_handle_export_rejects_invalid_form_key()
+	public function test_handle_logs_export_rejects_invalid_form_key()
 	{
 		self::$valid_form = false;
 
 		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
 
-		$this->create_controller($this->create_request_mock(['download_csv' => 1]), 'adm.php?i=test&mode=export')->handle_export();
+		$this->create_controller($this->create_request_mock(['download_csv' => 1]), 'adm.php?i=test&mode=export')->handle_logs();
 	}
 
-	public function test_handle_export_invalid_date_from_shows_error()
+	public function test_handle_logs_delete_requests_confirmation_without_form_key_validation()
 	{
-		self::$valid_form = true;
+		self::$valid_form = false;
+		self::$confirm_result = false;
 
-		$this->acp_manager->method('parse_date_filter')->willReturn(false);
-		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
-		$this->acp_manager->expects(self::never())->method('log_admin_export');
-
-		$args = [self::callback(static function ($vars) {
-			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date from') !== false;
-		})];
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
 		$this->template->expects(self::once())
 			->method('assign_vars')
-			->with(...$args);
+			->with([
+				'S_ERROR'            => false,
+				'ERROR_MSG'          => '',
+				'EXPORT_DATE_FROM'   => '2024-01-01',
+				'EXPORT_DATE_TO'     => '2024-12-31',
+				'EXPORT_USER_ID'     => 42,
+				'EXPORT_CONSENT_VER' => 2,
+				'U_ACTION'           => 'adm.php?i=test&mode=export',
+			]);
 
 		$request = $this->create_request_mock([
-			'download_csv' => 1,
-			'export_date_from' => 'not-a-date',
-			'export_date_to' => '',
-			'export_user_id' => 0,
-			'export_consent_version' => 0,
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
 		]);
-		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
+
+		self::assertSame($this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'), self::$confirm_title);
 	}
 
-	public function test_handle_export_invalid_date_to_shows_error()
+	public function test_handle_logs_delete_requests_confirmation_with_current_filters()
 	{
 		self::$valid_form = true;
-
-		$this->acp_manager->method('parse_date_filter')->willReturn(false);
-		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
-		$this->acp_manager->expects(self::never())->method('log_admin_export');
-
-		$args = [self::callback(static function ($vars) {
-			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], 'Date to') !== false;
-		})];
-		$this->template->expects(self::once())
-			->method('assign_vars')
-			->with(...$args);
-
-		$request = $this->create_request_mock([
-			'download_csv' => 1,
-			'export_date_from' => '',
-			'export_date_to' => '2024-13-01',
-			'export_user_id' => 0,
-			'export_consent_version' => 0,
-		]);
-		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
-	}
-
-	public function test_handle_export_reversed_date_range_shows_error()
-	{
-		self::$valid_form = true;
+		self::$confirm_result = false;
 
 		$this->acp_manager->method('parse_date_filter')
-			->willReturnOnConsecutiveCalls(1735603200, 1704067200);
-		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
-		$this->acp_manager->expects(self::never())->method('log_admin_export');
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->template->expects(self::once())
+			->method('assign_vars')
+			->with([
+				'S_ERROR'            => false,
+				'ERROR_MSG'          => '',
+				'EXPORT_DATE_FROM'   => '2024-01-01',
+				'EXPORT_DATE_TO'     => '2024-12-31',
+				'EXPORT_USER_ID'     => 42,
+				'EXPORT_CONSENT_VER' => 2,
+				'U_ACTION'           => 'adm.php?i=test&mode=export',
+			]);
 
-		$args = [self::callback(static function ($vars) {
-			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], '"Date from"') !== false;
+		$request = $this->create_request_mock([
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
+
+		self::assertSame($this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'), self::$confirm_title);
+		self::assertSame([
+			'mode' => 'export',
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		], self::$confirm_hidden_fields);
+	}
+
+	public function test_handle_logs_delete_cancel_returns_to_form_and_next_request_confirms_again()
+	{
+		self::$valid_form = false;
+		self::$confirm_result = false;
+
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->acp_manager->expects(self::exactly(4))
+			->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599, 1704067200, 1735689599);
+		$this->template->expects(self::exactly(2))
+			->method('assign_vars')
+			->with([
+				'S_ERROR'            => false,
+				'ERROR_MSG'          => '',
+				'EXPORT_DATE_FROM'   => '2024-01-01',
+				'EXPORT_DATE_TO'     => '2024-12-31',
+				'EXPORT_USER_ID'     => 42,
+				'EXPORT_CONSENT_VER' => 2,
+				'U_ACTION'           => 'adm.php?i=test&mode=export',
+			]);
+
+		$cancel_request = $this->create_request_mock([
+			'delete_logs' => 1,
+			'confirm_key' => 'existing-confirm-key',
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		]);
+		$this->create_controller($cancel_request, 'adm.php?i=test&mode=export')->handle_logs();
+
+		self::$confirm_title = '';
+		self::$confirm_hidden_fields = null;
+
+		$fresh_request = $this->create_request_mock([
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		]);
+
+		$this->create_controller($fresh_request, 'adm.php?i=test&mode=export')->handle_logs();
+
+		self::assertSame($this->language->lang('ACP_CONSENTMANAGER_DELETE_CONFIRM'), self::$confirm_title);
+	}
+
+	/**
+	 * @dataProvider handle_logs_invalid_filter_data
+	 */
+	public function test_handle_logs_invalid_filters_show_error($action, array $request_values, array $parse_results, $error_substring)
+	{
+		self::$valid_form = true;
+
+		$this->acp_manager->expects(self::never())->method('stream_logs_csv');
+		$this->acp_manager->expects(self::never())->method('delete_logs');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+
+		if (count($parse_results) === 1)
+		{
+			$this->acp_manager->method('parse_date_filter')->willReturn($parse_results[0]);
+		}
+		else
+		{
+			$this->acp_manager->method('parse_date_filter')
+				->willReturnOnConsecutiveCalls(...$parse_results);
+		}
+
+		$args = [self::callback(static function ($vars) use ($error_substring) {
+			return $vars['S_ERROR'] === true && strpos($vars['ERROR_MSG'], $error_substring) !== false;
 		})];
 		$this->template->expects(self::once())
 			->method('assign_vars')
 			->with(...$args);
 
-		$request = $this->create_request_mock([
-			'download_csv' => 1,
-			'export_date_from' => '2024-12-31',
-			'export_date_to' => '2024-01-01',
-			'export_user_id' => 0,
-			'export_consent_version' => 0,
-		]);
-		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_export();
+		$request_values[$action] = 1;
+		$this->create_controller($this->create_request_mock($request_values), 'adm.php?i=test&mode=export')->handle_logs();
 	}
 
-	public function test_handle_export_success_logs_and_passes_filters_to_download()
+	public function handle_logs_invalid_filter_data()
+	{
+		$cases = [
+			'invalid date from' => [
+				[
+					'export_date_from' => 'not-a-date',
+					'export_date_to' => '',
+					'export_user_id' => 0,
+					'export_consent_version' => 0,
+				],
+				[false],
+				'Date from',
+			],
+			'invalid date to' => [
+				[
+					'export_date_from' => '',
+					'export_date_to' => '2024-13-01',
+					'export_user_id' => 0,
+					'export_consent_version' => 0,
+				],
+				[false],
+				'Date to',
+			],
+			'reversed date range' => [
+				[
+					'export_date_from' => '2024-12-31',
+					'export_date_to' => '2024-01-01',
+					'export_user_id' => 0,
+					'export_consent_version' => 0,
+				],
+				[1735603200, 1704067200],
+				'"Date from"',
+			],
+		];
+
+		$data = [];
+
+		foreach (['download_csv', 'delete_logs'] as $action)
+		{
+			foreach ($cases as $name => $case)
+			{
+				$data[$action . ' ' . $name] = array_merge([$action], $case);
+			}
+		}
+
+		return $data;
+	}
+
+	public function test_handle_logs_export_success_logs_and_passes_filters_to_download()
 	{
 		self::$valid_form = true;
 
 		$this->acp_manager->method('parse_date_filter')
 			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
-		$this->acp_manager->expects(self::once())->method('log_admin_export');
+		$this->acp_manager->expects(self::once())->method('log_admin_action')->with('LOG_CONSENTMANAGER_EXPORT');
 
 		$request = $this->create_request_mock([
 			'download_csv' => 1,
@@ -316,7 +454,7 @@ class acp_controller_test extends \phpbb_test_case
 			$this->template
 		);
 		$controller->set_page_url('adm.php?i=test&mode=export');
-		$controller->handle_export();
+		$controller->handle_logs();
 
 		self::assertSame([
 			'date_from'       => 1704067200,
@@ -324,6 +462,35 @@ class acp_controller_test extends \phpbb_test_case
 			'user_id'         => 42,
 			'consent_version' => 2,
 		], $controller->captured_filters);
+	}
+
+	public function test_handle_logs_delete_confirmed_logs_and_triggers_success_notice()
+	{
+		self::$valid_form = false;
+		self::$confirm_result = true;
+
+		$this->acp_manager->method('parse_date_filter')
+			->willReturnOnConsecutiveCalls(1704067200, 1735689599);
+		$this->acp_manager->expects(self::once())
+			->method('delete_logs')
+			->with([
+				'date_from'       => 1704067200,
+				'date_to'         => 1735689599,
+				'user_id'         => 42,
+				'consent_version' => 2,
+			])
+			->willReturn(5);
+		$this->acp_manager->expects(self::once())->method('log_admin_action')->with('LOG_CONSENTMANAGER_DELETE');
+		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_DELETE_SUCCESS'));
+
+		$request = $this->create_request_mock([
+			'delete_logs' => 1,
+			'export_date_from' => '2024-01-01',
+			'export_date_to' => '2024-12-31',
+			'export_user_id' => 42,
+			'export_consent_version' => 2,
+		]);
+		$this->create_controller($request, 'adm.php?i=test&mode=export')->handle_logs();
 	}
 
 	protected function create_request_mock(array $values = [], array $raw_values = [])
@@ -395,6 +562,23 @@ function add_form_key()
 function check_form_key()
 {
 	return \phpbb\consentmanager\tests\controller\acp_controller_test::$valid_form;
+}
+
+function confirm_box($check, $title = '', $hidden = null)
+{
+	if ($check)
+	{
+		return \phpbb\consentmanager\tests\controller\acp_controller_test::$confirm_result;
+	}
+
+	\phpbb\consentmanager\tests\controller\acp_controller_test::$confirm_title = $title;
+	\phpbb\consentmanager\tests\controller\acp_controller_test::$confirm_hidden_fields = $hidden;
+	return false;
+}
+
+function build_hidden_fields($fields)
+{
+	return $fields;
 }
 
 function adm_back_link()

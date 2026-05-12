@@ -23,7 +23,7 @@ jobs:
         name: Merge main into develop branch
         # Keep this named after the GitHub repository.
         # GitHub Actions does not allow workflow env values in jobs.<job_id>.if.
-        if: github.repository == 'phpbb-extensions/consentmanager' && github.event.repository.fork == false
+        if: github.repository == 'phpbb-extensions/consent-manager' && github.event.repository.fork == false
         runs-on: ubuntu-latest
 
         steps:

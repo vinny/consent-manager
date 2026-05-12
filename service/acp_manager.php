@@ -216,6 +216,21 @@ class acp_manager
 	}
 
 	/**
+	 * Delete consent log rows matching the supplied filters.
+	 *
+	 * @param array $filters Optional: date_from, date_to, user_id, consent_version
+	 *
+	 * @return int Number of deleted rows
+	 */
+	public function delete_logs(array $filters = [])
+	{
+		$sql = 'DELETE FROM ' . $this->consent_logs_table . $this->build_delete_filter_where($filters);
+		$this->db->sql_query($sql);
+
+		return (int) $this->db->sql_affectedrows();
+	}
+
+	/**
 	 * Compute the anonymized identifier for a given registered user ID.
 	 *
 	 * Mirrors the HMAC used in log_manager::log_consent() so that admins can
@@ -234,33 +249,14 @@ class acp_manager
 	}
 
 	/**
-	 * Add an admin log entry for consent settings changes.
+	 * Add an admin log entry for an admin action in the settings.
 	 *
+	 * @param $message string Language key for the log message
 	 * @return void
 	 */
-	public function log_admin_settings_updated()
+	public function log_admin_action($message)
 	{
-		$this->log->add('admin', $this->user->data['user_id'], $this->user->ip, 'LOG_CONSENTMANAGER_UPDATED');
-	}
-
-	/**
-	 * Add an admin log entry when users are re-prompted for consent.
-	 *
-	 * @return void
-	 */
-	public function log_admin_reprompt()
-	{
-		$this->log->add('admin', $this->user->data['user_id'], $this->user->ip, 'LOG_CONSENTMANAGER_REPROMPT');
-	}
-
-	/**
-	 * Add an admin log entry when consent logs are exported.
-	 *
-	 * @return void
-	 */
-	public function log_admin_export()
-	{
-		$this->log->add('admin', $this->user->data['user_id'], $this->user->ip, 'LOG_CONSENTMANAGER_EXPORT');
+		$this->log->add('admin', $this->user->data['user_id'], $this->user->ip, $message);
 	}
 
 	/**
@@ -342,7 +338,38 @@ class acp_manager
 	 */
 	protected function build_filter_where(array $filters, $last_id = 0)
 	{
-		$where = ['consent_log_id > ' . (int) $last_id];
+		$where = array_merge(
+			['consent_log_id > ' . (int) $last_id],
+			$this->build_filter_conditions($filters)
+		);
+
+		return ' WHERE ' . implode(' AND ', $where);
+	}
+
+	/**
+	 * Build a WHERE clause for deleting consent logs.
+	 *
+	 * @param array $filters Filter map from parse_export_filters
+	 *
+	 * @return string SQL WHERE clause, or an empty string when no filters are set
+	 */
+	protected function build_delete_filter_where(array $filters)
+	{
+		$where = $this->build_filter_conditions($filters);
+
+		return empty($where) ? '' : ' WHERE ' . implode(' AND ', $where);
+	}
+
+	/**
+	 * Build SQL filter conditions shared by export and delete operations.
+	 *
+	 * @param array $filters Filter map from parse_export_filters
+	 *
+	 * @return array
+	 */
+	protected function build_filter_conditions(array $filters)
+	{
+		$where = [];
 
 		if (!empty($filters['date_from']))
 		{
@@ -365,7 +392,7 @@ class acp_manager
 			$where[] = 'consent_version = ' . (int) $filters['consent_version'];
 		}
 
-		return ' WHERE ' . implode(' AND ', $where);
+		return $where;
 	}
 
 	protected function sanitize_csv_value($value)
