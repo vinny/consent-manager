@@ -17,12 +17,15 @@
 		<dl>
 			<dt>
 				<label for="export_date_from">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_FROM') ~ lang('COLON') }}</label>
-				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_EXPLAIN') }}</span>
+				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_FROM_EXPLAIN') }}</span>
 			</dt>
 			<dd><input type="date" id="export_date_from" name="export_date_from" value="{{ EXPORT_DATE_FROM|e('html') }}"></dd>
 		</dl>
 		<dl>
-			<dt><label for="export_date_to">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO') ~ lang('COLON') }}</label></dt>
+			<dt>
+				<label for="export_date_to">{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO') ~ lang('COLON') }}</label>
+				<br><span>{{ lang('ACP_CONSENTMANAGER_EXPORT_DATE_TO_EXPLAIN') }}</span>
+			</dt>
 			<dd><input type="date" id="export_date_to" name="export_date_to" value="{{ EXPORT_DATE_TO|e('html') }}"></dd>
 		</dl>
 		<dl>
