@@ -100,6 +100,7 @@ class acp_manager
 			'S_CONSENTMANAGER_MARKETING'	=> (bool) $this->config['consentmanager_marketing_enabled'],
 			'S_CONSENTMANAGER_MEDIA'		=> (bool) $this->config['consentmanager_media_enabled'],
 			'CONSENTMANAGER_VERSION'		=> (int) $this->config['consentmanager_consent_version'],
+			'CONSENTMANAGER_SERVICES'		=> $this->consent_manager->get_services(),
 			'CONSENTMANAGER_INTEGRATIONS'	=> $this->get_integrations_json(),
 			'CONSENTMANAGER_INTEGRATIONS_EXAMPLE' => $this->get_integrations_example_json(),
 		];

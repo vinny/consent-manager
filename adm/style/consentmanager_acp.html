@@ -38,13 +38,51 @@
 	</fieldset>
 
 	<fieldset>
+		<legend>{{ lang('ACP_CONSENTMANAGER_REGISTRATIONS') }}</legend>
+		<dl>
+			<dt><span>{{ lang('ACP_CONSENTMANAGER_REGISTRATIONS_EXPLAIN') }}</span></dt>
+			<dd>
+				{% if CONSENTMANAGER_SERVICES %}
+					{% set services = S_CONSENTMANAGER_MEDIA ? CONSENTMANAGER_SERVICES|merge([{'category': 'media', 'label': 'iframe bbcodes', 'id': 'phpbb.consentmanager'}]) : CONSENTMANAGER_SERVICES %}
+					{% for category in [
+						{ id: 'necessary', label: lang('CONSENTMANAGER_CATEGORY_NECESSARY') },
+						{ id: 'analytics', label: lang('CONSENTMANAGER_CATEGORY_ANALYTICS') },
+						{ id: 'marketing', label: lang('CONSENTMANAGER_CATEGORY_MARKETING') },
+						{ id: 'media', label: lang('CONSENTMANAGER_CATEGORY_MEDIA') }
+					] %}
+						{% set category_has_services = false %}
+						{% for service in services if service.category == category.id %}
+							{% if not category_has_services %}
+								{% set category_has_services = true %}
+								<strong>{{ category.label }}</strong>
+								<ul>
+							{% endif %}
+							<li style="font-size: 0.7rem">{{ service.label }} » <em>{{ service.id }}</em></li>
+						{% endfor %}
+						{% if category_has_services %}
+							</ul>
+						{% endif %}
+					{% endfor %}
+				{% else %}
+					{{ lang('ACP_CONSENTMANAGER_REGISTRATIONS_NONE') }}
+				{% endif %}
+			</dd>
+		</dl>
+	</fieldset>
+
+	<fieldset>
 		<legend>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') }}</legend>
 		<dl>
 			<dt><label for="consentmanager_integrations">{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS') ~ lang('COLON') }}</label><br><span>{{ lang('ACP_CONSENTMANAGER_INTEGRATIONS_EXPLAIN') }}</span><br><br>
 				<span><strong>{{ lang('EXAMPLE') ~ lang('COLON') }}</strong></span><br>
 				<pre><samp class="error">{{ CONSENTMANAGER_INTEGRATIONS_EXAMPLE }}</samp></pre>
 			</dt>
-			<dd><textarea id="consentmanager_integrations" name="consentmanager_integrations" rows="14" cols="90">{{ CONSENTMANAGER_INTEGRATIONS|e('html') }}</textarea></dd>
+			<dd>
+				<div style="position: relative; display: inline-block;">
+					<textarea id="consentmanager_integrations" name="consentmanager_integrations" rows="14" cols="90" style="padding-right: 7.5em; padding-bottom: 1.8em;">{{ CONSENTMANAGER_INTEGRATIONS|e('html') }}</textarea>
+					<span id="consentmanager_integrations_warning" style="position: absolute; right: 0.8em; bottom: 0.8em; color: #bc2a4d; font-size: 0.85em; font-weight: bold; pointer-events: none; display: none;">{{ lang('ACP_CONSENTMANAGER_INVALID_JSON') }}</span>
+				</div>
+			</dd>
 		</dl>
 	</fieldset>
 
@@ -62,5 +100,42 @@
 		{{ S_FORM_TOKEN }}
 	</fieldset>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	var textarea = document.getElementById('consentmanager_integrations');
+	var warning = document.getElementById('consentmanager_integrations_warning');
+
+	if (!textarea || !warning)
+	{
+		return;
+	}
+
+	var updateWarning = function() {
+		var value = textarea.value.trim();
+		var isValidArray = false;
+
+		if (value === '')
+		{
+			warning.style.display = 'none';
+			return;
+		}
+
+		try
+		{
+			isValidArray = Array.isArray(JSON.parse(value));
+		}
+		catch (error)
+		{
+			isValidArray = false;
+		}
+
+		warning.style.display = isValidArray ? 'none' : 'block';
+	};
+
+	textarea.addEventListener('input', updateWarning);
+	updateWarning();
+});
+</script>
 
 {% include 'overall_footer.html' %}
