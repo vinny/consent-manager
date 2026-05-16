@@ -8,7 +8,7 @@
 
 Consent Manager is a GDPR-ready privacy/cookie consent management solution built for phpBB forums.
 
-It adds a consent banner, settings modal, and category-based controls, allowing visitors to accept all, reject all, or choose specific tracking types. A footer link lets users revisit and update their preferences at any time.
+It adds a consent banner, settings modal, and category-based controls, allowing visitors to accept all, reject all, or choose specific cookie types. A footer link lets users revisit and update their preferences at any time.
 
 The extension also provides an easy integration point for other phpBB extensions, enabling them to make their non-essential scripts compliant.
 

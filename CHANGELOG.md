@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.0-dev - 2026-05-16
+
+### Added
+
+- Added a registry of active services registered with Consent Manager to the ACP.
+- Added live JSON validation to the manual (ACP-managed) integrations field.
+
+### Changed 
+
+- Improved the ACP description of the manual (ACP-managed) integrations.
+- Improved formatting of buttons in the Consent Manager modal on mobile devices.
+- Improved CSRF protections when deleting consent logs.
+- Switched the Privacy settings link to a new lock icon.
+
 ## 0.3.0-dev - 2026-05-12
 
 ### Added
