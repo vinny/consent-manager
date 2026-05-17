@@ -1,29 +1,48 @@
+<div align="center">
+
 # Consent Manager
-
-> This extension is under development and will become available on [phpBB.com](https://phpbb.com) when it's ready
-
 [![Build Status](https://github.com/phpbb-extensions/consent-manager/actions/workflows/tests.yml/badge.svg)](https://github.com/phpbb-extensions/consent-manager/actions)
 [![codecov](https://codecov.io/gh/phpbb-extensions/consent-manager/graph/badge.svg?token=IE2YWG6N9V)](https://codecov.io/gh/phpbb-extensions/consent-manager)
 ![Stability](https://img.shields.io/badge/stability-dev-orange?logo=phpBB&logoColor=white)
 
-Consent Manager is a GDPR-ready privacy/cookie consent management solution built for phpBB forums.
+<p><i>Modern cookie consent for phpBB</i></p>
+<kbd><img src=".github/images/cm.png" width="566" height="208" alt="Consent Manager" style="width:566px; height:auto; max-width: 100%; display: block;"></kbd>
+</div>
 
-It adds a consent banner, settings modal, and category-based controls, allowing visitors to accept all, reject all, or choose specific cookie types. A footer link lets users revisit and update their preferences at any time.
+<br>
 
-The extension also provides an easy integration point for other phpBB extensions, enabling them to make their non-essential scripts compliant.
+Simple, GDPR-ready privacy controls with category-based consent, ACP management tools, and extension-friendly integrations.
 
-Out of the box, Consent Manager supports these categories:
+## Features
 
-- Necessary (always on)
-- Analytics (optional)
-- Marketing (optional)
-- Embedded media (optional)
+- Consent banner
+- Preference modal
+- Category-based controls
+- Consent logging
+- Version resets
+- ACP configuration
+- Extension integrations
 
-It also includes ACP settings for enabling categories, simple admin-managed integrations, detailed consent logging for audit and compliance purposes, and consent version resets to prompt users to review their choices when policies or integrations change.
+Supported categories:
 
-## For extension authors
+- Necessary
+- Analytics
+- Marketing
+- Embedded media
 
-If your extension adds analytics, advertising, or other tracking or cookie-related JavaScript, you’ll want to integrate it with Consent Manager so those scripts only run after user consent is granted.
+Necessary cookies stay enabled. The rest requires consent.
+
+## Built for phpBB admins
+
+Manage categories, integrations, consent resets, and audit logs directly from the ACP.
+
+- No external consent platforms 
+- No bloated configuration
+- No enterprise dashboards
+
+## For phpBB extension developers
+
+Consent Manager makes it easy for extension authors to ensure analytics, embeds, advertising, and other non-essential scripts only load after user consent has been granted.
 
 See the [Developer Documentation](DOCUMENTATION.md) for a complete guide.
 
