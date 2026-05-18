@@ -69,7 +69,6 @@ class acp_controller_test extends \phpbb_test_case
 			'user_form_salt' => 'form-salt',
 		];
 		$this->user->session_id = 'session-id';
-		$this->user->lang = $this->language->get_lang_array();
 
 		$this->template        = $this->createMock('\phpbb\template\template');
 		$this->acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');

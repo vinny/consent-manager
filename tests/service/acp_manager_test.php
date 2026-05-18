@@ -582,7 +582,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$content = stream_get_contents($handle);
 		fclose($handle);
 
-		$row = str_getcsv(trim($content));
+		$row = str_getcsv(trim($content), ',', '"', '\\');
 		self::assertCount(4, $row);
 
 		// anonymized_id: 64-char hex
@@ -627,7 +627,7 @@ class acp_manager_test extends \phpbb_database_test_case
 		$handle = fopen('php://memory', 'wb+');
 		$this->create_manager(1, 'session')->stream_logs_csv($handle);
 		rewind($handle);
-		$row = str_getcsv(trim(stream_get_contents($handle)));
+		$row = str_getcsv(trim(stream_get_contents($handle)), ',', '"', '\\');
 		fclose($handle);
 
 		// category cell must be prefixed with a tab to defuse the formula
