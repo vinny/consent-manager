@@ -576,7 +576,7 @@ Twig example:
 ```twig
 {% if S_CONSENTMANAGER_MEDIA_ENABLED %}
 	<span data-consent-media-container="1" data-consent-category="media">
-		<span data-consent-media-placeholder="1"></span>
+		<span data-consent-media-placeholder="1" data-consent-link="https://media.example.com/watch/123"></span>
 		<span data-consent-media-content="1" hidden="hidden">
 			<iframe
 				data-consent-media-frame="1"
@@ -602,6 +602,7 @@ How it works:
 - `data-consent-media-container="1"` marks the deferred embed block
 - `data-consent-category="media"` ties the block to the embedded media consent category
 - `data-consent-media-placeholder="1"` marks the blocked placeholder content
+- `data-consent-link` optionally stores the original user-facing URL for the placeholder link
 - `data-consent-media-content="1"` wraps the real media markup
 - `data-consent-media-frame="1"` marks iframe nodes that should be activated after consent
 - `data-consent-src` stores the real iframe URL until Consent Manager moves it back to `src`

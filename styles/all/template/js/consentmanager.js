@@ -703,6 +703,34 @@
 		}
 	}
 
+	function renderMediaPlaceholder(placeholder)
+	{
+		if (!placeholder)
+		{
+			return;
+		}
+
+		const source = placeholder.getAttribute('data-consent-link');
+		placeholder.textContent = mediaPlaceholderLabel || '';
+
+		if (!source || !isSafeEmbedSource(source))
+		{
+			return;
+		}
+
+		if (mediaPlaceholderLabel)
+		{
+			placeholder.appendChild(document.createTextNode(' '));
+		}
+
+		const link = document.createElement('a');
+		link.href = source;
+		link.target = '_blank';
+		link.rel = 'noopener noreferrer';
+		link.textContent = source;
+		placeholder.appendChild(link);
+	}
+
 	function processDeferredEmbeds(scope)
 	{
 		const nodes = collectMatchingNodes(scope, deferredEmbedSelector);
@@ -715,10 +743,7 @@
 			const placeholder = container.querySelector('[data-consent-media-placeholder]');
 			const frames = container.querySelectorAll('[data-consent-media-frame]');
 
-			if (mediaPlaceholderLabel && placeholder)
-			{
-				placeholder.textContent = mediaPlaceholderLabel;
-			}
+			renderMediaPlaceholder(placeholder);
 
 			if (!content || !frames.length)
 			{
@@ -1152,7 +1177,6 @@
 	{
 		document.addEventListener('DOMContentLoaded', function() {
 			processRegisteredScripts();
-			processDeferredEmbeds(document);
 			initUi();
 		});
 	}

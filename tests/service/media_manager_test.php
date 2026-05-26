@@ -93,6 +93,7 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('data-consent-src="https://video.example.com/embed/123"', $template);
 		self::assertStringContainsString('data-consent-onload="boot()"', $template);
 		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-link="{.}"', $template);
 		self::assertStringContainsString('data-consent-media-frame="1"', $template);
 		self::assertStringNotContainsString('$L_CONSENTMANAGER_MEDIA_PLACEHOLDER', $template);
 		self::assertStringNotContainsString('data-consent-open-settings="1"', $template);
@@ -116,6 +117,7 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('name="data-consent-media-container"', $template);
 		self::assertStringContainsString('name="data-consent-src"', $template);
 		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-link="{.}"', $template);
 		self::assertStringContainsString('data-consent-media-frame="1"', $template);
 		self::assertStringNotContainsString('$L_CONSENTMANAGER_MEDIA_PLACEHOLDER', $template);
 		self::assertStringNotContainsString('data-consent-open-settings="1"', $template);
@@ -139,6 +141,7 @@ class media_manager_test extends \phpbb_test_case
 		self::assertStringContainsString('data-consent-media-container="1"', $template);
 		self::assertStringContainsString('data-consent-src="https://video.example.com/embed/123"', $template);
 		self::assertStringContainsString('data-consent-media-placeholder="1"', $template);
+		self::assertStringContainsString('data-consent-link="{.}"', $template);
 		self::assertStringContainsString('data-consent-media-frame="1"', $template);
 		self::assertStringContainsString('class="custom-embed"', $template);
 		self::assertStringContainsString('data-consent-media-content="1"', $template);

@@ -32,7 +32,9 @@ class iframe_embed_test extends functional_base
 		$post_selector = '#post_content' . $post['topic_id'];
 
 		self::assertCount(1, $crawler->filter($post_selector . ' [data-consent-media-container="1"]'));
-		self::assertCount(1, $crawler->filter($post_selector . ' [data-consent-media-placeholder="1"]'));
+		$placeholder = $crawler->filter($post_selector . ' [data-consent-media-placeholder="1"]');
+		self::assertCount(1, $placeholder);
+		self::assertSame('https://video.example.com/embed/123', $placeholder->attr('data-consent-link'));
 		self::assertCount(1, $crawler->filter($post_selector . ' [data-consent-media-content="1"][hidden="hidden"]'));
 
 		$iframe = $crawler->filter($post_selector . ' iframe[data-consent-media-frame="1"]');

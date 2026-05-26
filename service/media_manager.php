@@ -245,6 +245,12 @@ class media_manager
 
 		$placeholder = $dom->createElement('span');
 		$placeholder->setAttribute('data-consent-media-placeholder', '1');
+		$link_attribute = $dom->createElementNS(self::XSL_NAMESPACE, 'xsl:attribute');
+		$link_attribute->setAttribute('name', 'data-consent-link');
+		$link_value = $dom->createElementNS(self::XSL_NAMESPACE, 'xsl:value-of');
+		$link_value->setAttribute('select', '.');
+		$link_attribute->appendChild($link_value);
+		$placeholder->appendChild($link_attribute);
 
 		$media_root->setAttribute('data-consent-media-content', '1');
 		$media_root->setAttribute('hidden', 'hidden');
