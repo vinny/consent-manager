@@ -42,8 +42,8 @@
 		<dl>
 			<dt><span>{{ lang('ACP_CONSENTMANAGER_REGISTRATIONS_EXPLAIN') }}</span></dt>
 			<dd>
-				{% if CONSENTMANAGER_SERVICES %}
-					{% set services = S_CONSENTMANAGER_MEDIA ? CONSENTMANAGER_SERVICES|merge([{'category': 'media', 'label': 'iframe bbcodes', 'id': 'phpbb.consentmanager'}]) : CONSENTMANAGER_SERVICES %}
+				{% set services = S_CONSENTMANAGER_MEDIA ? CONSENTMANAGER_SERVICES|merge([{'category': 'media', 'label': 'iframe bbcodes', 'id': 'phpbb.consentmanager'}]) : CONSENTMANAGER_SERVICES %}
+				{% if services %}
 					{% for category in [
 						{ id: 'necessary', label: lang('CONSENTMANAGER_CATEGORY_NECESSARY') },
 						{ id: 'analytics', label: lang('CONSENTMANAGER_CATEGORY_ANALYTICS') },

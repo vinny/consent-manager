@@ -19,7 +19,7 @@ class m1_initial extends \phpbb\db\migration\migration
 
 	public static function depends_on()
 	{
-		return ['\phpbb\db\migration\data\v33x\v3312rc1'];
+		return ['\phpbb\db\migration\data\v33x\v335'];
 	}
 
 	public function update_schema()

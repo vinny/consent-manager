@@ -23,7 +23,7 @@
 	"extra": {
 		"display-name": "Consent Manager",
 		"soft-require": {
-			"phpbb/phpbb": ">=3.3.0"
+			"phpbb/phpbb": ">=3.3.5"
 		}
 	}
 }
