@@ -138,7 +138,7 @@ class acp_module_test extends \phpbb_test_case
 
 	public function test_main_module_banner_mode()
 	{
-		$this->expect_controller_method('handle_banner_content');
+		$this->expect_controller_method('handle_consent_text');
 
 		$module = new \phpbb\consentmanager\acp\consentmanager_module();
 		$module->u_action = 'adm.php?i=test&mode=banner';

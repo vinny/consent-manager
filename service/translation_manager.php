@@ -124,7 +124,7 @@ class translation_manager
 	}
 
 	/**
-	 * Build template variables for the ACP banner content page.
+	 * Build template variables for the ACP consent text page.
 	 *
 	 * @param array|null $submitted_translations Submitted values to preserve after errors
 	 *

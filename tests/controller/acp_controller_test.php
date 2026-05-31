@@ -195,7 +195,7 @@ class acp_controller_test extends \phpbb_test_case
 		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
 	}
 
-	public function test_handle_banner_content_assigns_template_data()
+	public function test_handle_consent_text_assigns_template_data()
 	{
 		$this->translation_manager->expects(self::once())
 			->method('get_banner_template_data')
@@ -214,10 +214,10 @@ class acp_controller_test extends \phpbb_test_case
 				'U_ACTION' => self::ACP_URL,
 			]);
 
-		$this->create_controller($this->create_request_mock())->handle_banner_content();
+		$this->create_controller($this->create_request_mock())->handle_consent_text();
 	}
 
-	public function test_handle_banner_content_saves_submitted_translations()
+	public function test_handle_consent_text_saves_submitted_translations()
 	{
 		$translations = [
 			'en' => [
@@ -234,7 +234,7 @@ class acp_controller_test extends \phpbb_test_case
 			->with('LOG_CONSENTMANAGER_BANNER_UPDATED');
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_BANNER_UPDATED'));
 
-		$this->create_controller($this->create_request_mock(['submit' => 1], ['translations' => $translations]))->handle_banner_content();
+		$this->create_controller($this->create_request_mock(['submit' => 1], ['translations' => $translations]))->handle_consent_text();
 	}
 
 	/**

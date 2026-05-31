@@ -124,11 +124,11 @@ class acp_controller
 	}
 
 	/**
-	 * Handle the ACP banner content page request.
+	 * Handle the ACP consent text page request.
 	 *
 	 * @return void
 	 */
-	public function handle_banner_content()
+	public function handle_consent_text()
 	{
 		add_form_key('phpbb_consentmanager_banner');
 
