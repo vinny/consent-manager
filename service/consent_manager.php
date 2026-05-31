@@ -199,10 +199,9 @@ class consent_manager implements consent_manager_interface
 			'CONSENTMANAGER_PAYLOAD'				=> $has_optional_categories ? json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) : '',
 		];
 
-		// Override phpBB's cookie consent banner when Consent Manager is enabled
 		if ($has_optional_categories)
 		{
-			$vars['S_COOKIE_NOTICE'] = false;
+			$vars['S_COOKIE_NOTICE'] = false; // Override phpBB's cookie consent banner when Consent Manager is enabled
 			$vars['CONSENTMANAGER_BANNER_TITLE'] = $this->translation_manager->get_translation_for_display('banner_title', 'CONSENTMANAGER_DEFAULT_BANNER_TITLE');
 			$vars['CONSENTMANAGER_BANNER_TEXT'] = $this->translation_manager->get_translation_for_display('banner_message', 'CONSENTMANAGER_DEFAULT_BANNER_TEXT');
 			$vars['CONSENTMANAGER_BANNER_SUBTEXT'] = $this->translation_manager->get_translation_for_display('banner_subtext', 'CONSENTMANAGER_DEFAULT_BANNER_SUBTEXT');

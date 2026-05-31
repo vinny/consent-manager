@@ -98,7 +98,7 @@ class translation_manager
 	}
 
 	/**
-	 * Return a translation rendered for template output.
+	 * Return a translation rendered for the template output.
 	 *
 	 * @param string      $translation_key Stored translation key
 	 * @param string      $fallback_lang_key Extension language fallback key
