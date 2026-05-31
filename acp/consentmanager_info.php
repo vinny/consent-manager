@@ -23,6 +23,11 @@ class consentmanager_info
 					'auth' => 'ext_phpbb/consentmanager && acl_a_board',
 					'cat' => ['ACP_CONSENTMANAGER'],
 				],
+				'banner'	=> [
+					'title' => 'ACP_CONSENTMANAGER_BANNER',
+					'auth' => 'ext_phpbb/consentmanager && acl_a_board',
+					'cat' => ['ACP_CONSENTMANAGER'],
+				],
 				'export'	=> [
 					'title' => 'ACP_CONSENTMANAGER_EXPORT',
 					'auth' => 'ext_phpbb/consentmanager && acl_a_board',

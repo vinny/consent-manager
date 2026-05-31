@@ -7,10 +7,21 @@ services:
         arguments:
             - '@cache'
 
+    phpbb.consentmanager.translation_manager:
+        class: phpbb\consentmanager\service\translation_manager
+        arguments:
+            - '@dbal.conn'
+            - '@phpbb.consentmanager.cache'
+            - '@language'
+            - '%core.root_path%'
+            - '%core.php_ext%'
+            - '%tables.phpbb.consentmanager.translations%'
+
     phpbb.consentmanager.service:
         class: phpbb\consentmanager\service\consent_manager
         arguments:
             - '@phpbb.consentmanager.cache'
+            - '@phpbb.consentmanager.translation_manager'
             - '@config'
             - '@config_text'
             - '@language'
@@ -65,6 +76,7 @@ services:
         arguments:
             - '@language'
             - '@phpbb.consentmanager.acp_manager'
+            - '@phpbb.consentmanager.translation_manager'
             - '@request'
             - '@template'
             - '%core.root_path%'

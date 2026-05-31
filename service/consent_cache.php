@@ -15,6 +15,7 @@ use phpbb\cache\service as cache_service;
 class consent_cache
 {
 	public const INTEGRATIONS_CACHE_KEY = '_phpbb_consentmanager_integrations';
+	public const TRANSLATIONS_CACHE_KEY = '_phpbb_consentmanager_translations';
 
 	/** @var cache_service */
 	protected $cache;
@@ -67,6 +68,30 @@ class consent_cache
 	}
 
 	/**
+	 * Return cached custom translations.
+	 *
+	 * @return array|null
+	 */
+	public function get_translations()
+	{
+		$cached = $this->cache->get(self::TRANSLATIONS_CACHE_KEY);
+
+		return is_array($cached) ? $cached : null;
+	}
+
+	/**
+	 * Cache custom translations.
+	 *
+	 * @param array $translations Custom translations indexed by key and language
+	 *
+	 * @return void
+	 */
+	public function put_translations(array $translations)
+	{
+		$this->cache->put(self::TRANSLATIONS_CACHE_KEY, $translations);
+	}
+
+	/**
 	 * Invalidate persistent Consent Manager cache entries.
 	 *
 	 * @return void
@@ -74,5 +99,6 @@ class consent_cache
 	public function invalidate()
 	{
 		$this->cache->destroy(self::INTEGRATIONS_CACHE_KEY);
+		$this->cache->destroy(self::TRANSLATIONS_CACHE_KEY);
 	}
 }

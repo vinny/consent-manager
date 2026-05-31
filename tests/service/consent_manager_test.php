@@ -653,6 +653,9 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertTrue($data['S_CONSENTMANAGER_MEDIA_ENABLED']);
 		self::assertTrue($data['S_CONSENTMANAGER_MARKETING_ENABLED']);
 		self::assertFalse($data['S_COOKIE_NOTICE']);
+		self::assertSame($this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TITLE'), $data['CONSENTMANAGER_BANNER_TITLE']);
+		self::assertSame($this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_TEXT'), $data['CONSENTMANAGER_BANNER_TEXT']);
+		self::assertSame($this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_SUBTEXT'), $data['CONSENTMANAGER_BANNER_SUBTEXT']);
 		self::assertSame('/app.php/consent/log?x=<test>', $payload['logEndpoint']);
 		self::assertSame('abc123', $payload['logHash']);
 		self::assertArrayNotHasKey('label', $payload['categories'][0]);
@@ -676,6 +679,7 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertFalse($data['S_CONSENTMANAGER_MEDIA_ENABLED']);
 		self::assertSame('', $data['CONSENTMANAGER_PAYLOAD']);
 		self::assertArrayNotHasKey('S_COOKIE_NOTICE', $data);
+		self::assertArrayNotHasKey('CONSENTMANAGER_BANNER_TITLE', $data);
 	}
 
 	public function test_has_frontend_ui_returns_false_without_optional_categories()
@@ -1148,8 +1152,15 @@ class consent_manager_test extends \phpbb_test_case
 			$consent_cache = $this->get_consent_cache($cache_store);
 		}
 
+		$translation_manager = $this->createMock('\phpbb\consentmanager\service\translation_manager');
+		$translation_manager->method('get_translation_for_display')
+			->willReturnCallback(function ($translation_key, $fallback_lang_key) use ($language) {
+				return $language->lang($fallback_lang_key);
+			});
+
 		return [
 			$consent_cache,
+			$translation_manager,
 			$config,
 			$config_text,
 			$language,
