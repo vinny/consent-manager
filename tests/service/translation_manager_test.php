@@ -169,6 +169,21 @@ class translation_manager_test extends \phpbb_database_test_case
 		$this->assertSqlResultEquals([], 'SELECT translation_key FROM phpbb_consentmanager_translations');
 	}
 
+	public function test_ignores_allowed_keys_outside_banner_field_definitions()
+	{
+		$manager = $this->create_manager();
+		$errors = [];
+
+		self::assertTrue($manager->save_translations([
+			'en' => [
+				'unexpected_key' => 'Unexpected',
+			],
+		], ['unexpected_key'], $errors));
+
+		self::assertSame([], $errors);
+		$this->assertSqlResultEquals([], 'SELECT translation_key FROM phpbb_consentmanager_translations');
+	}
+
 	public function test_custom_translations_are_cached_between_manager_instances()
 	{
 		$cache_store = [];

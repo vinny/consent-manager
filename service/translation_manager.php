@@ -186,6 +186,7 @@ class translation_manager
 		$errors = [];
 		$installed_languages = array_column($this->get_installed_languages(), 'lang_iso');
 		$allowed_languages = array_fill_keys($installed_languages, true);
+		$allowed_keys = array_intersect($allowed_keys, array_keys(self::BANNER_FIELDS));
 		$allowed_keys = array_fill_keys($allowed_keys, true);
 
 		foreach ($submitted_translations as $lang_iso => $translations)
