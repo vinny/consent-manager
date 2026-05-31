@@ -135,6 +135,25 @@ class translation_manager_test extends \phpbb_database_test_case
 		);
 	}
 
+	public function test_four_byte_emoji_is_encoded_for_database_storage_and_decoded_for_editing()
+	{
+		$manager = $this->create_manager();
+		$errors = [];
+
+		self::assertTrue($manager->save_translations([
+			'de' => [
+				'banner_title' => 'We value your privacy 🐳',
+			],
+		], ['banner_title'], $errors));
+		self::assertSame([], $errors);
+
+		self::assertSame('We value your privacy 🐳', $manager->get_translation('banner_title', 'CONSENTMANAGER_DEFAULT_BANNER_TITLE', 'de'));
+		$this->assertSqlResultEquals(
+			[['translation_text' => 'We value your privacy &#128051;']],
+			"SELECT translation_text FROM phpbb_consentmanager_translations WHERE translation_key = 'banner_title' AND lang_iso = 'de'"
+		);
+	}
+
 	public function test_custom_translations_are_cached_between_manager_instances()
 	{
 		$cache_store = [];

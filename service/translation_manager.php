@@ -89,7 +89,7 @@ class translation_manager
 
 		if ($row !== null)
 		{
-			return $row['translation_text'];
+			return utf8_decode_ncr($row['translation_text']);
 		}
 
 		return $lang_iso === null
@@ -315,7 +315,7 @@ class translation_manager
 		$sql_ary = [
 			'translation_key' => $translation_key,
 			'lang_iso' => $lang_iso,
-			'translation_text' => $translation_text,
+			'translation_text' => utf8_encode_ucr($translation_text),
 			'translation_text_parsed' => $parsed_text,
 			'translation_uid' => $uid,
 			'translation_bitfield' => $bitfield,
