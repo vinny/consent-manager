@@ -18,11 +18,15 @@ class consent_cache_test extends consent_manager_test
 		$consent_cache = $this->get_consent_cache($cache_store);
 
 		$consent_cache->put_integrations('fingerprint', [['id' => 'board.analytics']]);
+		$consent_cache->put_translations(['banner_message' => ['en' => ['translation_text' => 'Custom']]]);
 
 		self::assertSame([['id' => 'board.analytics']], $consent_cache->get_integrations('fingerprint'));
+		self::assertSame(['banner_message' => ['en' => ['translation_text' => 'Custom']]], $consent_cache->get_translations());
 
-		$consent_cache->invalidate();
+		$consent_cache->invalidate_integrations();
+		$consent_cache->invalidate_translations();
 
 		self::assertNull($consent_cache->get_integrations('fingerprint'));
+		self::assertNull($consent_cache->get_translations());
 	}
 }

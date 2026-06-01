@@ -1,0 +1,49 @@
+{% include 'overall_header.html' %}
+
+<h1>{{ lang('ACP_CONSENTMANAGER') }}</h1>
+
+<p>{{ lang('ACP_CONSENTMANAGER_BANNER_EXPLAIN') }}</p>
+
+{% if S_ERROR %}
+	<div class="errorbox">
+		<h3>{{ lang('WARNING') }}</h3>
+		<p>{{ ERROR_MSG }}</p>
+	</div>
+{% endif %}
+
+<form id="acp_consentmanager_banner" method="post" action="{{ U_ACTION }}">
+	<table class="table1 zebra-table">
+		<thead>
+			<tr>
+				<th>{{ lang('LANGUAGE') }}</th>
+				{% for field in CONSENTMANAGER_BANNER_FIELDS %}
+					<th>{{ field.LABEL }}</th>
+				{% endfor %}
+			</tr>
+		</thead>
+		<tbody>
+			{% for language in CONSENTMANAGER_BANNER_LANGUAGES %}
+				<tr>
+					<td style="width: 16%;">
+						<strong>{{ language.NAME }}</strong><br>
+						<code>{{ language.ISO }}</code>
+					</td>
+					{% for translation in language.TRANSLATIONS %}
+						<td>
+							<textarea name="translations[{{ language.ISO }}][{{ translation.KEY }}]" rows="4" cols="36" style="width:80%">{{ translation.VALUE|e('html') }}</textarea>
+						</td>
+					{% endfor %}
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+
+	<p>{{ lang('ACP_CONSENTMANAGER_BANNER_FALLBACK_EXPLAIN') }}</p>
+
+	<fieldset class="submit-buttons">
+		<input class="button1" type="submit" id="submit" name="submit" value="{{ lang('SUBMIT') }}">
+		{{ S_FORM_TOKEN }}
+	</fieldset>
+</form>
+
+{% include 'overall_footer.html' %}

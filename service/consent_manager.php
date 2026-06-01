@@ -29,6 +29,9 @@ class consent_manager implements consent_manager_interface
 	/** @var consent_cache */
 	protected $consent_cache;
 
+	/** @var translation_manager */
+	protected $translation_manager;
+
 	/** @var config */
 	protected $config;
 
@@ -81,6 +84,7 @@ class consent_manager implements consent_manager_interface
 	 * Constructor.
 	 *
 	 * @param consent_cache        $consent_cache Persistent cache helper
+	 * @param translation_manager  $translation_manager Translation manager service
 	 * @param config               $config Config service
 	 * @param db_text              $config_text Text configuration storage
 	 * @param language             $language Language service
@@ -90,9 +94,10 @@ class consent_manager implements consent_manager_interface
 	 * @param filesystem           $filesystem Filesystem helper
 	 * @param request_interface    $request Request service
 	 */
-	public function __construct(consent_cache $consent_cache, config $config, db_text $config_text, language $language, dispatcher_interface $dispatcher, environment $twig_environment, path_helper $path_helper, filesystem $filesystem, request_interface $request)
+	public function __construct(consent_cache $consent_cache, translation_manager $translation_manager, config $config, db_text $config_text, language $language, dispatcher_interface $dispatcher, environment $twig_environment, path_helper $path_helper, filesystem $filesystem, request_interface $request)
 	{
 		$this->consent_cache = $consent_cache;
+		$this->translation_manager = $translation_manager;
 		$this->config = $config;
 		$this->config_text = $config_text;
 		$this->language = $language;
@@ -194,10 +199,12 @@ class consent_manager implements consent_manager_interface
 			'CONSENTMANAGER_PAYLOAD'				=> $has_optional_categories ? json_encode($payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) : '',
 		];
 
-		// Override phpBB's cookie consent banner when Consent Manager is enabled
 		if ($has_optional_categories)
 		{
-			$vars['S_COOKIE_NOTICE'] = false;
+			$vars['S_COOKIE_NOTICE'] = false; // Override phpBB's cookie consent banner when Consent Manager is enabled
+			$vars['CONSENTMANAGER_BANNER_TITLE'] = $this->translation_manager->get_translation_for_display('banner_title', 'CONSENTMANAGER_DEFAULT_BANNER_TITLE');
+			$vars['CONSENTMANAGER_BANNER_TEXT'] = $this->translation_manager->get_translation_for_display('banner_message', 'CONSENTMANAGER_DEFAULT_BANNER_TEXT');
+			$vars['CONSENTMANAGER_BANNER_SUBTEXT'] = $this->translation_manager->get_translation_for_display('banner_subtext', 'CONSENTMANAGER_DEFAULT_BANNER_SUBTEXT');
 		}
 
 		return $vars;

@@ -134,7 +134,7 @@ class acp_manager
 		$this->config->set('consentmanager_marketing_enabled', !empty($settings['marketing_enabled']) ? 1 : 0);
 		$this->config->set('consentmanager_media_enabled', $media_enabled);
 		$this->config_text->set('consentmanager_integrations', $stored_integrations);
-		$this->consent_cache->invalidate();
+		$this->consent_cache->invalidate_integrations();
 
 		if ($media_setting_changed)
 		{

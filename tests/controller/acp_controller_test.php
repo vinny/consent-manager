@@ -41,6 +41,9 @@ class acp_controller_test extends \phpbb_test_case
 	/** @var \phpbb\consentmanager\service\acp_manager|\PHPUnit\Framework\MockObject\MockObject */
 	protected $acp_manager;
 
+	/** @var \phpbb\consentmanager\service\translation_manager|\PHPUnit\Framework\MockObject\MockObject */
+	protected $translation_manager;
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -72,6 +75,7 @@ class acp_controller_test extends \phpbb_test_case
 
 		$this->template        = $this->createMock('\phpbb\template\template');
 		$this->acp_manager     = $this->createMock('\phpbb\consentmanager\service\acp_manager');
+		$this->translation_manager = $this->createMock('\phpbb\consentmanager\service\translation_manager');
 		self::$confirm_result = false;
 		self::$confirm_title = '';
 		self::$confirm_hidden_fields = null;
@@ -83,6 +87,7 @@ class acp_controller_test extends \phpbb_test_case
 		$controller = new \phpbb\consentmanager\controller\acp_controller(
 			$this->language,
 			$this->acp_manager,
+			$this->translation_manager,
 			$request,
 			$this->template,
 			$phpbb_root_path,
@@ -188,6 +193,133 @@ class acp_controller_test extends \phpbb_test_case
 		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_REPROMPT_SUCCESS'));
 
 		$this->create_controller($this->create_request_mock(['reset_consent' => 1]))->handle();
+	}
+
+	public function test_handle_consent_text_assigns_template_data()
+	{
+		$this->translation_manager->expects(self::once())
+			->method('get_banner_template_data')
+			->with(null)
+			->willReturn([
+				'CONSENTMANAGER_BANNER_FIELDS' => [],
+				'CONSENTMANAGER_BANNER_LANGUAGES' => [],
+			]);
+		$this->template->expects(self::once())
+			->method('assign_vars')
+			->with([
+				'CONSENTMANAGER_BANNER_FIELDS' => [],
+				'CONSENTMANAGER_BANNER_LANGUAGES' => [],
+				'S_ERROR' => false,
+				'ERROR_MSG' => '',
+				'U_ACTION' => self::ACP_URL,
+			]);
+
+		$this->create_controller($this->create_request_mock())->handle_consent_text();
+	}
+
+	public function test_handle_consent_text_saves_submitted_translations()
+	{
+		$translations = [
+			'en' => [
+				'banner_message' => 'Custom message',
+			],
+		];
+
+		$this->translation_manager->expects(self::once())
+			->method('save_translations')
+			->with($translations, ['banner_title', 'banner_message', 'banner_subtext'], self::anything())
+			->willReturn(true);
+		$this->acp_manager->expects(self::once())
+			->method('log_admin_action')
+			->with('LOG_CONSENTMANAGER_BANNER_UPDATED');
+		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_BANNER_UPDATED'));
+
+		$this->create_controller($this->create_request_mock(['submit' => 1], ['translations' => $translations]))->handle_consent_text();
+	}
+
+	public function test_handle_consent_text_uses_sanitized_multibyte_request_variable()
+	{
+		$translations = [
+			'en' => [
+				'banner_message' => 'Custom message 🧑🏽‍💻',
+			],
+		];
+		$expected_default = ['' => ['' => '']];
+
+		$request = $this->getMockBuilder('\phpbb\request\request')
+			->disableOriginalConstructor()
+			->setMethods(['is_set_post', 'variable', 'raw_variable'])
+			->getMock();
+		$request->method('is_set_post')
+			->willReturnCallback(static function ($name) {
+				return $name === 'submit';
+			});
+		$request->expects(self::once())
+			->method('variable')
+			->with('translations', $expected_default, true, \phpbb\request\request_interface::POST)
+			->willReturn(array_merge($expected_default, $translations));
+		$request->expects(self::never())
+			->method('raw_variable');
+
+		$this->translation_manager->expects(self::once())
+			->method('save_translations')
+			->with($translations, ['banner_title', 'banner_message', 'banner_subtext'], self::anything())
+			->willReturn(true);
+		$this->setExpectedTriggerError(E_USER_NOTICE, $this->language->lang('ACP_CONSENTMANAGER_BANNER_UPDATED'));
+
+		$this->create_controller($request)->handle_consent_text();
+	}
+
+	public function test_handle_consent_text_validation_errors_reassigns_submitted_translations()
+	{
+		self::$valid_form = true;
+
+		$translations = [
+			'en' => [
+				'banner_message' => 'Broken [quote]message',
+			],
+		];
+
+		$this->translation_manager->expects(self::once())
+			->method('save_translations')
+			->willReturnCallback(function (array $submitted, array $allowed_keys, array &$errors) use ($translations) {
+				self::assertSame($translations, $submitted);
+				self::assertSame(['banner_title', 'banner_message', 'banner_subtext'], $allowed_keys);
+				$errors = ['Invalid banner text'];
+				return false;
+			});
+		$this->translation_manager->expects(self::once())
+			->method('get_banner_template_data')
+			->with($translations)
+			->willReturn([
+				'CONSENTMANAGER_BANNER_FIELDS' => [],
+				'CONSENTMANAGER_BANNER_LANGUAGES' => [],
+			]);
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+
+		$args = [self::callback(static function ($vars) {
+			return $vars['S_ERROR'] === true
+				&& $vars['ERROR_MSG'] === 'Invalid banner text'
+				&& $vars['U_ACTION'] === self::ACP_URL;
+		})];
+		$this->template->expects(self::once())
+			->method('assign_vars')
+			->with(...$args);
+
+		$this->create_controller($this->create_request_mock(['submit' => 1], ['translations' => $translations]))->handle_consent_text();
+	}
+
+	public function test_handle_consent_text_invalid_form_key_stops_before_processing()
+	{
+		self::$valid_form = false;
+
+		$this->translation_manager->expects(self::never())->method('save_translations');
+		$this->translation_manager->expects(self::never())->method('get_banner_template_data');
+		$this->acp_manager->expects(self::never())->method('log_admin_action');
+		$this->template->expects(self::never())->method('assign_vars');
+		$this->setExpectedTriggerError(E_USER_WARNING, $this->language->lang('FORM_INVALID'));
+
+		$this->create_controller($this->create_request_mock(['submit' => 1]))->handle_consent_text();
 	}
 
 	/**
@@ -498,6 +630,7 @@ class acp_controller_test extends \phpbb_test_case
 		$controller = new \phpbb\consentmanager\tests\controller\testable_acp_controller(
 			$this->language,
 			$this->acp_manager,
+			$this->translation_manager,
 			$request,
 			$this->template,
 			$phpbb_root_path,
@@ -612,7 +745,7 @@ class acp_controller_test extends \phpbb_test_case
 			});
 
 		$request->method('raw_variable')
-			->willReturnCallback(function ($name, $default) use ($values, $raw_values) {
+			->willReturnCallback(function ($name, $default, $super_global = null) use ($values, $raw_values) {
 				if (array_key_exists($name, $raw_values))
 				{
 					return $raw_values[$name];

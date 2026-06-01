@@ -11,8 +11,10 @@
 namespace phpbb\consentmanager\controller;
 
 use phpbb\consentmanager\service\acp_manager;
+use phpbb\consentmanager\service\translation_manager;
 use phpbb\language\language;
 use phpbb\request\request;
+use phpbb\request\request_interface;
 use phpbb\template\template;
 
 class acp_controller
@@ -22,6 +24,9 @@ class acp_controller
 
 	/** @var acp_manager */
 	protected $acp_manager;
+
+	/** @var translation_manager */
+	protected $translation_manager;
 
 	/** @var request */
 	protected $request;
@@ -41,17 +46,19 @@ class acp_controller
 	/**
 	 * Constructor.
 	 *
-	 * @param language                  $language Language service
-	 * @param acp_manager $acp_manager ACP manager service
-	 * @param request     $request Request service
-	 * @param template    $template Template service
-	 * @param string      $root_path phpBB root path
-	 * @param string      $php_ext PHP file extension
+	 * @param language            $language Language service
+	 * @param acp_manager         $acp_manager ACP manager service
+	 * @param translation_manager $translation_manager Translation manager service
+	 * @param request             $request Request service
+	 * @param template            $template Template service
+	 * @param string              $root_path phpBB root path
+	 * @param string              $php_ext PHP file extension
 	 */
-	public function __construct(language $language, acp_manager $acp_manager, request $request, template $template, $root_path, $php_ext)
+	public function __construct(language $language, acp_manager $acp_manager, translation_manager $translation_manager, request $request, template $template, $root_path, $php_ext)
 	{
 		$this->language = $language;
 		$this->acp_manager = $acp_manager;
+		$this->translation_manager = $translation_manager;
 		$this->request = $request;
 		$this->template = $template;
 		$this->root_path = $root_path;
@@ -114,6 +121,41 @@ class acp_controller
 		}
 
 		$this->assign_template_vars();
+	}
+
+	/**
+	 * Handle the ACP consent text page request.
+	 *
+	 * @return void
+	 */
+	public function handle_consent_text()
+	{
+		add_form_key('phpbb_consentmanager_banner');
+
+		if ($this->request->is_set_post('submit'))
+		{
+			$this->validate_form_key('phpbb_consentmanager_banner');
+
+			$translations = $this->request->variable('translations', ['' => ['' => '']], true, request_interface::POST);
+			unset($translations['']);
+			$errors = [];
+			$saved = $this->translation_manager->save_translations(
+				is_array($translations) ? $translations : [],
+				array_keys(translation_manager::BANNER_FIELDS),
+				$errors
+			);
+
+			if (!$saved)
+			{
+				$this->assign_banner_template_vars($errors, is_array($translations) ? $translations : []);
+				return;
+			}
+
+			$this->acp_manager->log_admin_action('LOG_CONSENTMANAGER_BANNER_UPDATED');
+			trigger_error($this->language->lang('ACP_CONSENTMANAGER_BANNER_UPDATED') . adm_back_link($this->u_action));
+		}
+
+		$this->assign_banner_template_vars();
 	}
 
 	/**
@@ -316,6 +358,18 @@ class acp_controller
 			'U_FIND_USERNAME'    => $this->get_find_username_url(),
 			'U_ACTION'           => $this->u_action,
 		]);
+	}
+
+	protected function assign_banner_template_vars(array $errors = [], array $submitted_translations = null)
+	{
+		$this->template->assign_vars(array_merge(
+			$this->translation_manager->get_banner_template_data($submitted_translations),
+			[
+				'S_ERROR'	=> !empty($errors),
+				'ERROR_MSG'	=> implode('<br>', $errors),
+				'U_ACTION'	=> $this->u_action,
+			]
+		));
 	}
 
 	protected function get_find_username_url()

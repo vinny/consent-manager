@@ -85,6 +85,11 @@ class acp_module_test extends \phpbb_test_case
 						'auth'	=> 'ext_phpbb/consentmanager && acl_a_board',
 						'cat'	=> ['ACP_CONSENTMANAGER']
 					],
+					'banner'	=> [
+						'title'	=> 'ACP_CONSENTMANAGER_BANNER',
+						'auth'	=> 'ext_phpbb/consentmanager && acl_a_board',
+						'cat'	=> ['ACP_CONSENTMANAGER']
+					],
 					'export'	=> [
 						'title'	=> 'ACP_CONSENTMANAGER_EXPORT',
 						'auth'	=> 'ext_phpbb/consentmanager && acl_a_board',
@@ -129,6 +134,18 @@ class acp_module_test extends \phpbb_test_case
 
 		self::assertSame('consentmanager_acp_export', $module->tpl_name);
 		self::assertSame('ACP_CONSENTMANAGER_EXPORT', $module->page_title);
+	}
+
+	public function test_main_module_banner_mode()
+	{
+		$this->expect_controller_method('handle_consent_text');
+
+		$module = new \phpbb\consentmanager\acp\consentmanager_module();
+		$module->u_action = 'adm.php?i=test&mode=banner';
+		$module->main('', 'banner');
+
+		self::assertSame('consentmanager_acp_banner', $module->tpl_name);
+		self::assertSame('ACP_CONSENTMANAGER_BANNER', $module->page_title);
 	}
 
 	protected function expect_controller_method($method)

@@ -26,6 +26,12 @@ class consentmanager_module
 
 		switch ($mode)
 		{
+			case 'banner':
+				$this->tpl_name = 'consentmanager_acp_banner';
+				$this->page_title = 'ACP_CONSENTMANAGER_BANNER';
+				$controller->handle_consent_text();
+			break;
+
 			case 'export':
 				$this->tpl_name = 'consentmanager_acp_export';
 				$this->page_title = 'ACP_CONSENTMANAGER_EXPORT';

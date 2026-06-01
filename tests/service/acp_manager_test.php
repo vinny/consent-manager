@@ -707,8 +707,8 @@ class acp_manager_test extends \phpbb_database_test_case
 	 * Creates the four mocks common to all save_settings tests.
 	 *
 	 * @param string|null $expected_stored_value  Value expected to be passed to config_text->set(), or null to expect never.
-	 * @param mixed       $cache_invocation       Invocation rule for consent_cache->invalidate() (default: once).
-	 * @param mixed       $text_formatter_invocation Invocation rule for text_formatter_cache->invalidate() (default: never).
+	 * @param mixed       $cache_invocation       Invocation rule for consent_cache->invalidate_integrations() (default: once).
+	 * @param mixed       $text_formatter_invocation Invocation rule for text_formatter_cache->invalidate_integrations() (default: never).
 	 */
 	protected function create_save_settings_mocks($expected_stored_value, $cache_invocation = null, $text_formatter_invocation = null)
 	{
@@ -728,7 +728,7 @@ class acp_manager_test extends \phpbb_database_test_case
 			->willReturn([]);
 
 		$consent_cache = $this->createMock('\phpbb\consentmanager\service\consent_cache');
-		$consent_cache->expects($cache_invocation ?? self::once())->method('invalidate');
+		$consent_cache->expects($cache_invocation ?? self::once())->method('invalidate_integrations');
 
 		$text_formatter_cache = $this->createMock('\phpbb\textformatter\cache_interface');
 		$text_formatter_cache->expects($text_formatter_invocation ?? self::never())->method('invalidate');

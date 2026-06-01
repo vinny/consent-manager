@@ -1,2 +1,3 @@
 parameters:
     tables.phpbb.consentmanager.consent_logs: '%core.table_prefix%consentmanager_logs'
+    tables.phpbb.consentmanager.translations: '%core.table_prefix%consentmanager_translations'
