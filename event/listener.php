@@ -126,6 +126,6 @@ class listener implements EventSubscriberInterface
 	 */
 	protected function is_acp_or_installer()
 	{
-		return defined('ADMIN_START') || defined('IN_INSTALL');
+		return defined('IN_ADMIN') || defined('IN_INSTALL');
 	}
 }
