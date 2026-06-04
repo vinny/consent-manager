@@ -207,6 +207,13 @@ class listener_test extends \phpbb_test_case
 		$template->expects(self::never())
 			->method('assign_block_vars');
 
-		$this->create_listener($helper, $consent_manager, $template)->inject_frontend();
+		$listener = new class($helper, $this->language, $consent_manager, $template, $this->media_manager) extends \phpbb\consentmanager\event\listener {
+			protected function is_acp_or_installer()
+			{
+				return false;
+			}
+		};
+
+		$listener->inject_frontend();
 	}
 }
