@@ -571,20 +571,26 @@ Exposes Consent Manager's startup data. This is for internal use; extension inte
 
 For extensions or templates that render iframe-based external media **outside** phpBB's bbcode engine, only output the deferred Consent Manager wrapper when the embedded media category is enabled. Otherwise, keep rendering the normal iframe.
 
-Twig example:
+Let's look at how we would handle the following iframe:
+
+```html
+<iframe src="https://media.example.com/embed/123" width="640" height="360" allowfullscreen></iframe>
+```
+
+### Pattern 1: Twig template example
 
 ```twig
 {% if S_CONSENTMANAGER_MEDIA_ENABLED %}
 	<span data-consent-media-container="1" data-consent-category="media">
 		<span data-consent-media-placeholder="1" data-consent-link="https://media.example.com/watch/123"></span>
-		<span data-consent-media-content="1" hidden="hidden">
-			<iframe
-				data-consent-media-frame="1"
-				data-consent-src="https://media.example.com/embed/123"
-				width="640"
-				height="360"
-				allowfullscreen></iframe>
-		</span>
+		<iframe
+			data-consent-media-content="1"
+			data-consent-media-frame="1"
+			hidden="hidden"
+			data-consent-src="https://media.example.com/embed/123"
+			width="640"
+			height="360"
+			allowfullscreen></iframe>
 	</span>
 {% else %}
 	<iframe
@@ -611,7 +617,30 @@ Use this pattern for:
 
 - extension template files that print iframes directly
 - integrations that embed third-party widgets with raw iframes instead of bbcode
-- custom board markup where iframes were added manually, whether by editing phpBB files directly or through another extension that allows custom HTML/Twig
+- custom markup where iframes were added manually, whether by editing phpBB files directly or through an extension that allows Twig template code injection
+
+### Pattern 2: Manual markup
+
+Use this when the iframe is injected outside phpBB's Twig template system, and you know Consent Manager is installed with the embedded media category enabled. This pattern does not include a fallback because static non-Twig HTML cannot check `S_CONSENTMANAGER_MEDIA_ENABLED`.
+
+```html
+<span data-consent-media-container="1" data-consent-category="media">
+	<span data-consent-media-placeholder="1" data-consent-link="https://media.example.com/watch/123"></span>
+	<iframe
+		data-consent-media-frame="1"
+		data-consent-media-content="1"
+		hidden="hidden"
+		data-consent-src="https://media.example.com/embed/123"
+		width="640"
+		height="360"
+		allowfullscreen></iframe>
+</span>
+```
+
+Use this pattern for:
+
+- ACP/custom-code features that inject raw HTML into pages
+- integrations that output iframe markup after phpBB's bbcode and Twig rendering have already finished
 
 ## Examples of Consent Manager integrations
 
