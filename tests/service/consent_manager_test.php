@@ -639,6 +639,12 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame('/app.php/consent/log', $payload['logEndpoint']);
 		self::assertSame('deadbeef', $payload['logHash']);
 		self::assertArrayNotHasKey('services', $payload);
+		self::assertSame(array(
+			'enabled' => true,
+			'types' => array(
+				'analytics_storage' => 'analytics',
+			),
+		), $payload['googleConsentMode']);
 		self::assertSame(array('vendor.bundle.loader', 'board.analytics'), array_column($payload['scripts'], 'id'));
 	}
 
@@ -658,6 +664,15 @@ class consent_manager_test extends \phpbb_test_case
 		self::assertSame($this->language->lang('CONSENTMANAGER_DEFAULT_BANNER_SUBTEXT'), $data['CONSENTMANAGER_BANNER_SUBTEXT']);
 		self::assertSame('/app.php/consent/log?x=<test>', $payload['logEndpoint']);
 		self::assertSame('abc123', $payload['logHash']);
+		self::assertSame(array(
+			'enabled' => true,
+			'types' => array(
+				'analytics_storage' => 'analytics',
+				'ad_storage' => 'marketing',
+				'ad_user_data' => 'marketing',
+				'ad_personalization' => 'marketing',
+			),
+		), $payload['googleConsentMode']);
 		self::assertArrayNotHasKey('label', $payload['categories'][0]);
 		self::assertArrayNotHasKey('description', $payload['categories'][0]);
 		self::assertArrayNotHasKey('banner', $payload);

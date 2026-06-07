@@ -19,6 +19,8 @@
 	const categoriesById = {};
 	const deferredSelector = 'script[type="text/plain"][data-consent-category]';
 	const deferredEmbedSelector = '[data-consent-media-container][data-consent-category]';
+	const googleConsentMode = payload.googleConsentMode || {};
+	const googleConsentTypes = googleConsentMode.types || {};
 	let requiredCategories = [];
 	let enabledCategories = [];
 	let optionalCategories = [];
@@ -322,6 +324,45 @@
 		}
 	}
 
+	function buildGoogleConsentModeState()
+	{
+		const consentState = {};
+
+		if (!googleConsentMode.enabled)
+		{
+			return consentState;
+		}
+
+		for (const consentType in googleConsentTypes)
+		{
+			if (Object.prototype.hasOwnProperty.call(googleConsentTypes, consentType))
+			{
+				consentState[consentType] = hasConsent(googleConsentTypes[consentType]) ? 'granted' : 'denied';
+			}
+		}
+
+		return consentState;
+	}
+
+	function applyGoogleConsentMode()
+	{
+		if (!googleConsentMode.enabled || typeof window.gtag !== 'function')
+		{
+			return;
+		}
+
+		const consentState = buildGoogleConsentModeState();
+
+		for (const consentType in consentState)
+		{
+			if (Object.prototype.hasOwnProperty.call(consentState, consentType))
+			{
+				window.gtag('consent', 'update', consentState);
+				return;
+			}
+		}
+	}
+
 	function sameCategories(left, right)
 	{
 		return left.join('|') === right.join('|');
@@ -460,12 +501,14 @@
 			state.timestamp = nextState.timestamp;
 			persistState(state);
 			updateUi();
+			applyGoogleConsentMode();
 			return;
 		}
 
 		state = nextState;
 		persistState(state);
 		updateUi();
+		applyGoogleConsentMode();
 		processRegisteredScripts();
 		processDeferredNodes(document);
 		processDeferredEmbeds(document);
@@ -1142,6 +1185,8 @@
 	};
 
 	window.consentManager = api;
+
+	applyGoogleConsentMode();
 
 	for (let i = 0; i < payload.scripts.length; i++)
 	{

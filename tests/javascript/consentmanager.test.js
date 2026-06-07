@@ -24,6 +24,15 @@ function createPayload(overrides) {
 		requiredCategories: [ 'necessary' ],
 		enabledCategories: [ 'necessary', 'analytics', 'marketing', 'media' ],
 		optionalCategories: [ 'analytics', 'marketing', 'media' ],
+		googleConsentMode: {
+			enabled: true,
+			types: {
+				analytics_storage: 'analytics',
+				ad_storage: 'marketing',
+				ad_user_data: 'marketing',
+				ad_personalization: 'marketing'
+			}
+		},
 		scripts: []
 	}, overrides || {});
 }
@@ -104,6 +113,7 @@ function setupConsentManager(options) {
 	});
 	const { window } = dom;
 	const requests = [];
+	const gtagCalls = settings.gtagCalls || [];
 
 	Object.defineProperty(window.document, 'readyState', {
 		configurable: true,
@@ -150,6 +160,13 @@ function setupConsentManager(options) {
 		window.consentManager = settings.queue;
 	}
 
+	if (settings.withGtag) {
+		window.gtagCalls = gtagCalls;
+		window.gtag = function() {
+			gtagCalls.push(Array.prototype.slice.call(arguments));
+		};
+	}
+
 	if (settings.localState) {
 		window.localStorage.setItem(payload.storageKey, JSON.stringify(settings.localState));
 	}
@@ -172,6 +189,7 @@ function setupConsentManager(options) {
 		document: window.document,
 		payload,
 		requests,
+		gtagCalls,
 		jsdomErrors
 	};
 }
@@ -243,6 +261,40 @@ test('accept-all persists consent, logs the decision, and updates the UI state',
 		version: payload.version,
 		categories: [ 'necessary', 'analytics', 'marketing', 'media' ]
 	});
+});
+
+test('updates Google consent mode before activating newly consented marketing scripts', () => {
+	const { window, gtagCalls } = setupConsentManager({
+		withGtag: true,
+		extraMarkup: `
+			<script type="text/plain" data-consent-category="marketing">
+				window.marketingConsentAtExecution = window.gtagCalls[window.gtagCalls.length - 1];
+			</script>
+		`
+	});
+
+	click(window, '[data-consent-action="accept-all"]');
+
+	expect(gtagCalls[0]).toEqual([
+		'consent',
+		'update',
+		{
+			analytics_storage: 'denied',
+			ad_storage: 'denied',
+			ad_user_data: 'denied',
+			ad_personalization: 'denied'
+		}
+	]);
+	expect(window.marketingConsentAtExecution).toEqual([
+		'consent',
+		'update',
+		{
+			analytics_storage: 'granted',
+			ad_storage: 'granted',
+			ad_user_data: 'granted',
+			ad_personalization: 'granted'
+		}
+	]);
 });
 
 test('reject-all logs the updated decision before reloading when consent is revoked', () => {

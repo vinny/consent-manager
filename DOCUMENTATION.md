@@ -34,6 +34,7 @@ Your extension will then appear in the consent UI, and optional scripts will sta
   - [`consentManager.getState()`](#consentmanagergetstate)
   - [`window.phpbbConsentManagerPayload`](#windowphpbbconsentmanagerpayload)
 - [Embedded `<iframe>` media patterns](#embedded-iframe-media-patterns)
+- [Google Consent Mode](#google-consent-mode)
 - [Examples of Consent Manager integrations](#examples-of-consent-manager-integrations)
 
 ## Strategy guide
@@ -642,34 +643,67 @@ Use this pattern for:
 - ACP/custom-code features that inject raw HTML into pages
 - integrations that output iframe markup after phpBB's bbcode and Twig rendering have already finished
 
+## Google Consent Mode
+
+Consent Manager handles Google Consent Mode automatically when optional consent categories are enabled.
+
+It maps Consent Manager categories to Google consent types:
+
+| Consent Manager category | Google consent type(s)                             |
+|--------------------------|----------------------------------------------------|
+| `analytics`              | `analytics_storage`                                |
+| `marketing`              | `ad_storage`, `ad_user_data`, `ad_personalization` |
+
+Consent Manager sets Google consent defaults to `denied` before later header scripts should run, then updates the current state from the user's stored consent. When the user changes consent, Consent Manager updates Google Consent Mode before activating newly consented deferred scripts.
+
+Extensions that use Google tags should not implement their own Google Consent Mode bridge unless they have a specialized need. Register the service with Consent Manager and let Consent Manager publish the consent state to Google.
+
+Extensions that initialize `gtag` should preserve any existing `window.gtag` function created by Consent Manager or another extension:
+
+```js
+window.dataLayer = window.dataLayer || [];
+window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+gtag('js', new Date());
+```
+
+Avoid global function declarations such as `function gtag(){dataLayer.push(arguments);}` in extension templates. They usually still work, but can replace an existing `window.gtag` wrapper unnecessarily.
+
+Template ordering matters. If your extension outputs Google tag code or any script that relies on Google Consent Mode, place it in a later template event than Consent Manager's `overall_header_head_append.html`, for example:
+
+- `overall_header_stylesheets_after`
+- later `overall_header_*` events
+- `overall_footer_*` events
+
+Do not place Google tag code in an earlier event such as `overall_header_feeds`, because Consent Manager may not have set the default consent state yet.
+
 ## Examples of Consent Manager integrations
 
-### phpBB Google Analytics Extension
+### Example Analytics Extension
 
-For this extension, which adds a Google Analytics code snippet to the page, Pattern 2 was the best choice.
+For this extension, which adds a generic analytics code snippet to the page, Pattern 2 was the best choice.
 
 The following PHP registration was added to the extension's event listener class:
 
 ```php
 /**
- * Register Google Analytics with Consent Manager when available.
+ * Register Example Analytics with the Consent Manager when available.
  *
  * @param \phpbb\event\data|array $event The event object or event data
  * @return void
  */
 public function register_analytics($event)
 {
-	if (!$this->config['googleanalytics_id'])
+	if (!$this->config['example_analytics_id'])
 	{
 		return;
 	}
 
-	$this->language->add_lang('common', 'phpbb/googleanalytics');
+	$this->language->add_lang('common', 'vendor/exampleanalytics');
 
-	$event['consent_manager']->register('phpbb.googleanalytics', [
-		'label'       => $this->language->lang('GOOGLEANALYTICS_LABEL'),
+	$event['consent_manager']->register('vendor.exampleanalytics', [
+		'label'       => $this->language->lang('EXAMPLE_ANALYTICS_LABEL'),
 		'category'    => 'analytics',
-		'description' => $this->language->lang('GOOGLEANALYTICS_DESCRIPTION'),
+		'description' => $this->language->lang('EXAMPLE_ANALYTICS_DESCRIPTION'),
 	]);
 }
 ```
@@ -679,26 +713,19 @@ public function register_analytics($event)
 The following placeholder changes were made to its `script` tags in its template file:
 
 ```twig
-{% if GOOGLEANALYTICS_ID %}
-	<!-- Google tag (gtag.js) - Google Analytics -->
-	<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %} async src="https://www.googletagmanager.com/gtag/js?id={{ GOOGLEANALYTICS_ID }}"></script>
+{% if EXAMPLE_ANALYTICS_ID %}
+	<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %} src="https://analytics.example.com/tracker.js?id={{ EXAMPLE_ANALYTICS_ID }}" async></script>
 	<script{% if S_CONSENTMANAGER_ANALYTICS_ENABLED %} type="text/plain" data-consent-category="analytics"{% endif %}>
-		window.dataLayer = window.dataLayer || [];
-		function gtag(){dataLayer.push(arguments);}
-		gtag('js', new Date());
-
-		gtag('config', '{{ GOOGLEANALYTICS_ID }}', {
-			{%- EVENT phpbb_googleanalytics_gtag_options -%}
-			{%- if S_REGISTERED_USER %}'user_id': '{{ GOOGLEANALYTICS_USER_ID }}',{% endif -%}
-			{%- if S_ANONYMIZE_IP %}'anonymize_ip': true,{% endif -%}
-			{%- if S_COOKIE_SECURE -%}'cookie_flags': 'samesite=none;secure',{%- endif -%}
-		});
+		window.exampleAnalytics = window.exampleAnalytics || [];
+		window.exampleAnalytics.push(['init', '{{ EXAMPLE_ANALYTICS_ID|e('js') }}']);
+		window.exampleAnalytics.push(['trackPageView']);
 	</script>
 {% endif %}
 ```
+
 We used the `S_CONSENTMANAGER_ANALYTICS_ENABLED` flag and the `data-consent-category="analytics"` attribute to tell Consent Manager when it may activate the script.
 
-These changes ensure that Google Analytics appears in the Consent UI to the user, and that its scripts only run when consent is granted.
+These changes ensure that Example Analytics appears in the Consent UI to the user, and that its scripts only run when analytics consent is granted.
 
 ---
 
