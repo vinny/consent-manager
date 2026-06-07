@@ -5,6 +5,8 @@
 		const payload = {{ CONSENTMANAGER_PAYLOAD|raw }};
 		const requiredCategories = payload.requiredCategories || [];
 		const enabledCategories = payload.enabledCategories || [];
+		const googleConsentMode = payload.googleConsentMode || {};
+		const googleConsentTypes = googleConsentMode.types || {};
 
 		window.phpbbConsentManagerPayload = payload;
 		window.phpbbConsentManagerLang = {
@@ -110,6 +112,32 @@
 			return hasValue(requiredCategories, category) || !!(state && hasValue(enabledCategories, category) && state.categories.indexOf(category) !== -1);
 		};
 		window.consentManager = stub;
+
+		if (googleConsentMode.enabled)
+		{
+			window.dataLayer = window.dataLayer || [];
+			window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+
+			const defaults = {};
+			const updates = {};
+			let hasConsentTypes = false;
+
+			for (const consentType in googleConsentTypes)
+			{
+				if (Object.prototype.hasOwnProperty.call(googleConsentTypes, consentType))
+				{
+					defaults[consentType] = 'denied';
+					updates[consentType] = stub.hasConsent(googleConsentTypes[consentType]) ? 'granted' : 'denied';
+					hasConsentTypes = true;
+				}
+			}
+
+			if (hasConsentTypes)
+			{
+				window.gtag('consent', 'default', defaults);
+				window.gtag('consent', 'update', updates);
+			}
+		}
 	})(window, document);
 	</script>
 	{% INCLUDEJS '@phpbb_consentmanager/js/consentmanager.js' %}

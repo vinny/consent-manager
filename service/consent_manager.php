@@ -325,6 +325,7 @@ class consent_manager implements consent_manager_interface
 			'enabledCategories' => $this->get_enabled_category_ids($categories),
 			'optionalCategories' => $this->get_optional_category_ids($categories),
 			'categories' => $this->get_frontend_payload_categories($categories),
+			'googleConsentMode' => $this->get_google_consent_mode_config($categories),
 			'scripts' => array_values($scripts),
 			'logEndpoint' => $log_url,
 			'logHash' => $log_hash,
@@ -744,6 +745,35 @@ class consent_manager implements consent_manager_interface
 		}
 
 		return array_values($enabled_categories);
+	}
+
+	/**
+	 * Return the Google Consent Mode consent type to category mapping.
+	 *
+	 * @param array $categories Category metadata
+	 *
+	 * @return array
+	 */
+	protected function get_google_consent_mode_config(array $categories)
+	{
+		$types = [];
+
+		if (!empty($categories[self::ANALYTICS_CATEGORY]['enabled']))
+		{
+			$types['analytics_storage'] = self::ANALYTICS_CATEGORY;
+		}
+
+		if (!empty($categories[self::MARKETING_CATEGORY]['enabled']))
+		{
+			$types['ad_storage'] = self::MARKETING_CATEGORY;
+			$types['ad_user_data'] = self::MARKETING_CATEGORY;
+			$types['ad_personalization'] = self::MARKETING_CATEGORY;
+		}
+
+		return [
+			'enabled' => !empty($types),
+			'types' => $types,
+		];
 	}
 
 	/**
