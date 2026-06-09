@@ -56,12 +56,18 @@ class log_manager_test extends \phpbb_database_test_case
 			FROM phpbb_consentmanager_logs');
 	}
 
-	public function test_log_consent_skips_guests()
+	public function test_log_consent_uses_session_identifier_for_guests()
 	{
 		$manager = $this->create_manager(ANONYMOUS, 'guest-session');
 		$manager->log_consent(array('necessary'), 9);
 
-		$this->assertSqlResultEquals(array(), 'SELECT anonymized_id, consent_version, accepted_categories
+		$this->assertSqlResultEquals(array(
+			array(
+				'anonymized_id' => hash_hmac('sha256', 's:guest-session', 'random-seed'),
+				'consent_version' => '9',
+				'accepted_categories' => '["necessary"]',
+			),
+		), 'SELECT anonymized_id, consent_version, accepted_categories
 			FROM phpbb_consentmanager_logs');
 	}
 

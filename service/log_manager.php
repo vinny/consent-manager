@@ -54,11 +54,6 @@ class log_manager
 	 */
 	public function log_consent(array $categories, $version)
 	{
-		if ((int) $this->user->data['user_id'] === ANONYMOUS)
-		{
-			return;
-		}
-
 		$record = [
 			'anonymized_id' => $this->get_anonymized_subject(),
 			'consent_version' => (int) $version,
@@ -71,12 +66,14 @@ class log_manager
 	}
 
 	/**
-	 * Build an anonymized identifier for the current authenticated user.
+	 * Build an anonymized identifier for the current user or session.
 	 *
 	 * @return string
 	 */
 	protected function get_anonymized_subject()
 	{
-		return hash_hmac('sha256', 'u:' . (int) $this->user->data['user_id'], $this->config['rand_seed']);
+		$subject = (int) $this->user->data['user_id'] !== ANONYMOUS ? 'u:' . (int) $this->user->data['user_id'] : 's:' . $this->user->session_id;
+
+		return hash_hmac('sha256', $subject, $this->config['rand_seed']);
 	}
 }

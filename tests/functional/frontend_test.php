@@ -32,6 +32,7 @@ class frontend_test extends functional_base
 
 		$this->assertStringContainsString('consent-manager-root', $content);
 		$this->assertContainsLang('CONSENTMANAGER_SETTINGS_TITLE', $crawler->filter('#consent-manager-link')->text());
+		$this->assertSame(2, $crawler->filter('.consent-manager-policy-link')->count());
 		$this->assertSame(1, $payload['version']);
 		$this->assertSame('phpbb_consent_manager', $payload['storageKey']);
 		$this->assertSame($this->lang('CONSENTMANAGER_MEDIA_PLACEHOLDER'), $this->extract_media_placeholder_label($content));
@@ -61,7 +62,7 @@ class frontend_test extends functional_base
 		), json_decode(self::$client->getResponse()->getContent(), true));
 	}
 
-	public function test_log_endpoint_accepts_valid_anonymous_submission_without_persisting_it()
+	public function test_log_endpoint_persists_valid_anonymous_submission()
 	{
 		$payload = $this->fetch_frontend_payload();
 		$response = $this->post_log_request($payload, array('analytics', 'analytics', 'unknown'));
@@ -76,7 +77,7 @@ class frontend_test extends functional_base
 		$row = $this->db->sql_fetchrow($result);
 		$this->db->sql_freeresult($result);
 
-		$this->assertSame(0, (int) $row['log_count']);
+		$this->assertSame(1, (int) $row['log_count']);
 	}
 
 	public function test_log_endpoint_persists_valid_authenticated_submission()

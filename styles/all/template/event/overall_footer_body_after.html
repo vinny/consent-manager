@@ -1,8 +1,9 @@
 {% if S_CONSENTMANAGER_ENABLED %}
+{% set privacy_link %}<a class="consent-manager-policy-link" href="{{ U_PRIVACY }}">{{ lang('PRIVACY') }}</a>{% endset %}
 <div id="consent-manager-root" class="consent-manager-root">
 	<div class="consent-manager-banner" id="consent-manager-banner" role="region" aria-labelledby="consent-manager-banner-title" aria-describedby="consent-manager-banner-copy" hidden="hidden">
 		<h2 class="consent-manager-heading" id="consent-manager-banner-title">{{ CONSENTMANAGER_BANNER_TITLE }}</h2>
-		<p class="consent-manager-copy" id="consent-manager-banner-copy">{{ CONSENTMANAGER_BANNER_TEXT }} {{ CONSENTMANAGER_BANNER_SUBTEXT }}</p>
+		<p class="consent-manager-copy" id="consent-manager-banner-copy">{{ CONSENTMANAGER_BANNER_TEXT }} {{ CONSENTMANAGER_BANNER_SUBTEXT }} {{ lang('CONSENTMANAGER_PRIVACY_POLICY_LINK', privacy_link) }}</p>
 		<div class="consent-manager-actions">
 			<button type="button" class="consent-manager-button" data-consent-action="accept-all">{{ lang('CONSENTMANAGER_ACCEPT_ALL') }}</button>
 			<button type="button" class="consent-manager-button" data-consent-action="reject-all">{{ lang('CONSENTMANAGER_REJECT_ALL') }}</button>
@@ -16,6 +17,7 @@
 				<button type="button" class="consent-manager-button" data-consent-action="close-settings">{{ lang('CLOSE_WINDOW') }}</button>
 			</div>
 			<p class="consent-manager-copy" id="consent-manager-modal-copy">{{ CONSENTMANAGER_BANNER_TEXT }}</p>
+			<p class="consent-manager-copy">{{ lang('CONSENTMANAGER_PRIVACY_POLICY_LINK', privacy_link) }}</p>
 			{% for cat in CONSENTMANAGER_CATEGORIES %}
 			<section class="consent-manager-category">
 				<div class="consent-manager-category-header">

@@ -30,6 +30,7 @@ $lang = array_merge($lang, [
 	'CONSENTMANAGER_DEFAULT_BANNER_TITLE'		=> 'We value your privacy',
 	'CONSENTMANAGER_DEFAULT_BANNER_TEXT'		=> 'This forum uses cookies to keep you signed in, secure your account, and ensure the site works properly. With your consent, we may also use optional cookies and similar technologies for analytics, marketing, and embedded media.',
 	'CONSENTMANAGER_DEFAULT_BANNER_SUBTEXT'		=> 'You can change your preferences at any time in the Privacy Settings.',
+	'CONSENTMANAGER_PRIVACY_POLICY_LINK'		=> 'Read our %s here.',
 	'CONSENTMANAGER_CATEGORY_NECESSARY'			=> 'Necessary',
 	'CONSENTMANAGER_CATEGORY_NECESSARY_EXPLAIN'	=> 'Required for forum security, authentication, and essential site functionality.',
 	'CONSENTMANAGER_CATEGORY_ANALYTICS'			=> 'Analytics',

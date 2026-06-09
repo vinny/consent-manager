@@ -1,6 +1,7 @@
 .consent-manager-root {
 	--consent-manager-color-text: #111827;
 	--consent-manager-color-text-muted: #475569;
+	--consent-manager-color-link: #105289;
 	--consent-manager-color-surface: #ffffff;
 	--consent-manager-color-border: rgba(18, 41, 64, 0.16);
 	--consent-manager-color-border-subtle: #e2e8f0;
@@ -72,6 +73,10 @@
 	line-height: 1.5;
 	color: var(--consent-manager-color-text-muted);
 	margin: 0;
+}
+
+.consent-manager-policy-link {
+	color: var(--consent-manager-color-link);
 }
 
 .consent-manager-actions {
