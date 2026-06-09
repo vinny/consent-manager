@@ -19,7 +19,8 @@ Simple, GDPR-ready privacy controls with category-based consent, ACP management 
 - Category-based consent options
 - Consent logging
 - Consent version resets
-- ACP-managed categories, integrations, and audit logs
+- Google Consent Mode
+- ACP-managed categories, integrations, messaging, and audit logs
 - Extension integration API
 
 ### Supported categories:

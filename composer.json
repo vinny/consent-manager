@@ -1,7 +1,7 @@
 {
 	"name": "phpbb/consentmanager",
 	"type": "phpbb-extension",
-	"description": "Centralized GDPR-compliant consent and deferred script loading for phpBB forums.",
+	"description": "GDPR-ready Consent Manager Platform for phpBB forums, providing category consent, script/media blocking, consent records, and extension integration APIs.",
 	"homepage": "https://www.phpbb.com/",
 	"version": "1.0.0-a2",
 	"keywords": ["phpbb", "extension", "gdpr", "consent", "cookies"],
