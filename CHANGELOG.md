@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.0-b1 - 2026-06-09
+
+### Added
+
+- Added Google Consent Mode support so Google tags can receive analytics and marketing consent state automatically.
+- Added Privacy Policy links to the consent banner and settings modal.
+
+### Changed
+
+- Updated consent and developer documentation for Google Consent Mode, iframe patterns, and integration examples.
+- Excluded developer documentation from release packages.
+
+### Fixed
+
+- Restored consent logging for anonymous users with anonymized session-based identifiers.
+- Fixed Consent Manager not loading on the ACP login page.
+
 ## 1.0.0-a2 - 2026-06-01
 
 ### Added
