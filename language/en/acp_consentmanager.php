@@ -19,7 +19,7 @@ if (empty($lang) || !is_array($lang))
 }
 
 $lang = array_merge($lang, [
-	'ACP_CONSENTMANAGER_EXPLAIN'					=> 'Here you can control category availability, registered your own integrations, and update consent versioning. Scripts added here (or by extensions via the API) will be deferred until the appropriate consent is given.',
+	'ACP_CONSENTMANAGER_EXPLAIN'					=> 'Here you can control category availability, register your own integrations, and update consent versioning. Scripts added here (or by extensions via the API) will be deferred until the appropriate consent is given.',
 	'ACP_CONSENTMANAGER_CATEGORIES'					=> 'Consent categories',
 	'ACP_CONSENTMANAGER_ANALYTICS'					=> 'Enable analytics category',
 	'ACP_CONSENTMANAGER_ANALYTICS_EXPLAIN'			=> 'Allows analytics integrations to be presented to users and loaded after consent.',

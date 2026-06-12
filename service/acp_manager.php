@@ -296,7 +296,7 @@ class acp_manager
 	/**
 	 * Add an admin log entry for an admin action in the settings.
 	 *
-	 * @param $message string Language key for the log message
+	 * @param string $message Language key for the log message
 	 * @return void
 	 */
 	public function log_admin_action($message)
